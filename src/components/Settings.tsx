@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getBackendConfig, saveBackendConfig, resetBackendConfig, BackendConfig } from '../utils/config';
 import './Settings.css';
 

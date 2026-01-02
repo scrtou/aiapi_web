@@ -119,7 +119,7 @@ const ChannelManager: React.FC = () => {
       
       const response = await api.post('/aichat/channel/delete', channelsToDelete);
       const results = response.data;
-      const successCount = results.filter(r => r.status === 'success').length;
+      const successCount = results.filter((r: { status: string }) => r.status === 'success').length;
       
       alert(`成功删除 ${successCount} 个渠道`);
       setSelectedChannels(new Set());

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import AccountManager from './components/AccountManager'
 import ChannelManager from './components/ChannelManager'
 import ModelList from './components/ModelList'
