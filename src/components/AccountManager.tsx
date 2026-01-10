@@ -291,6 +291,7 @@ const AccountManager: React.FC = () => {
                   <th>使用次数</th>
                   <th>Token 状态</th>
                   <th>账号状态</th>
+                  <th>创建时间</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -323,6 +324,15 @@ const AccountManager: React.FC = () => {
                       <span className={`status-badge ${account.accountstatus ? 'active' : 'inactive'}`}>
                         {account.accountstatus ? '✓ 启用' : '✗ 禁用'}
                       </span>
+                    </td>
+                    <td>
+                      {account.createtime ? (
+                        <span className="createtime">
+                          {new Date(account.createtime).toLocaleString('zh-CN')}
+                        </span>
+                      ) : (
+                        <span className="empty">-</span>
+                      )}
                     </td>
                     <td>
                       <button

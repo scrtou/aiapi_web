@@ -9,6 +9,7 @@ export interface AccountInfo {
   usecount?: number;
   tokenstatus?: boolean;
   accountstatus?: boolean;
+  createtime?: string;
 }
 
 // 账号添加/删除请求

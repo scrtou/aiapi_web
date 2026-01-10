@@ -6,6 +6,9 @@ const Settings: React.FC = () => {
   const [config, setConfig] = useState<BackendConfig>(() => getBackendConfig());
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // 检测当前页面是否使用 HTTPS
+  const isPageHttps = window.location.protocol === 'https:';
 
   // 处理表单提交
   const handleSubmit = (e: React.FormEvent) => {
@@ -47,8 +50,8 @@ const Settings: React.FC = () => {
   const handleTest = async () => {
     setError(null);
     try {
-      const testUrl = `http://${config.host}:${config.port}/chaynsapi/v1/models`;
-      const response = await fetch(testUrl, { 
+      const testUrl = `${config.protocol}://${config.host}:${config.port}/chaynsapi/v1/models`;
+      const response = await fetch(testUrl, {
         method: 'GET',
         signal: AbortSignal.timeout(5000) // 5秒超时
       });
@@ -77,7 +80,26 @@ const Settings: React.FC = () => {
           <h3>后端服务器地址</h3>
           <p className="settings-description">
             配置后端 API 服务器的地址和端口。修改后需要刷新页面才能生效。
+            <br />
+            <strong>注意：</strong>如果网站使用 HTTPS 访问，后端也必须使用 HTTPS，否则浏览器会阻止请求。
           </p>
+
+          <div className="form-group">
+            <label>协议</label>
+            <select
+              value={config.protocol}
+              onChange={(e) => setConfig({ ...config, protocol: e.target.value as 'http' | 'https' })}
+              disabled={isPageHttps}
+            >
+              <option value="http" disabled={isPageHttps}>HTTP {isPageHttps ? '(HTTPS页面不可用)' : ''}</option>
+              <option value="https">HTTPS</option>
+            </select>
+            {isPageHttps ? (
+              <small className="warning-text">⚠️ 当前页面使用 HTTPS，后端必须使用 HTTPS，否则请求会被浏览器阻止</small>
+            ) : (
+              <small>HTTPS 网站必须使用 HTTPS 后端</small>
+            )}
+          </div>
 
           <div className="form-group">
             <label>主机地址</label>
@@ -107,7 +129,7 @@ const Settings: React.FC = () => {
             <h4>当前配置</h4>
             <div className="config-display">
               <span className="config-label">完整地址：</span>
-              <code>http://{config.host}:{config.port}</code>
+              <code>{config.protocol}://{config.host}:{config.port}</code>
             </div>
           </div>
         </div>
@@ -129,9 +151,10 @@ const Settings: React.FC = () => {
         <h3>使用说明</h3>
         <ul>
           <li>修改配置后，需要刷新页面才能使新配置生效</li>
-          <li>默认配置：localhost:8080</li>
+          <li>默认配置：127.0.0.1:5555</li>
           <li>配置保存在浏览器的 localStorage 中</li>
           <li>使用"测试连接"按钮可以验证服务器是否可访问</li>
+          <li><strong>重要：</strong>如果网站使用 HTTPS 访问，必须将协议设置为 HTTPS，否则浏览器会因为"混合内容"安全策略而阻止 API 请求</li>
         </ul>
       </div>
     </div>
