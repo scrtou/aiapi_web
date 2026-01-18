@@ -9,6 +9,7 @@ const AccountManager: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   
   // 表单数据
   const [formData, setFormData] = useState<AccountRequest>({
@@ -21,6 +22,7 @@ const AccountManager: React.FC = () => {
     usecount: 0,
     tokenstatus: true,
     accountstatus: true,
+    accounttype: 'free',
   });
 
   // 加载账号列表
@@ -73,8 +75,10 @@ const AccountManager: React.FC = () => {
       if (formData.usecount !== undefined) cleanedData.usecount = formData.usecount;
       if (formData.tokenstatus !== undefined) cleanedData.tokenstatus = formData.tokenstatus;
       if (formData.accountstatus !== undefined) cleanedData.accountstatus = formData.accountstatus;
+      if (formData.accounttype) cleanedData.accounttype = formData.accounttype;
 
-      const response = await api.post('/aichat/account/add', [cleanedData]);
+      const endpoint = isEditing ? '/aichat/account/update' : '/aichat/account/add';
+      const response = await api.post(endpoint, [cleanedData]);
       const results = response.data;
       
       if (results[0].status === 'success') {
@@ -89,18 +93,38 @@ const AccountManager: React.FC = () => {
           usecount: 0,
           tokenstatus: true,
           accountstatus: true,
+          accounttype: 'free',
         });
         setShowAddForm(false);
+        setIsEditing(false);
         // 重新加载账号列表
         await loadAccounts();
       } else {
-        setError('添加账号失败');
+        setError(isEditing ? '更新账号失败' : '添加账号失败');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '添加账号失败');
+      setError(err instanceof Error ? err.message : (isEditing ? '更新账号失败' : '添加账号失败'));
     } finally {
       setLoading(false);
     }
+  };
+
+  // 编辑账号
+  const handleEdit = (account: AccountInfo) => {
+    setFormData({
+      apiname: account.apiname,
+      username: account.username,
+      password: account.password,
+      authtoken: account.authtoken || '',
+      usertobitid: account.usertobitid,
+      personid: account.personid || '',
+      usecount: account.usecount || 0,
+      tokenstatus: account.tokenstatus ?? true,
+      accountstatus: account.accountstatus ?? true,
+      accounttype: account.accounttype || 'free',
+    });
+    setIsEditing(true);
+    setShowAddForm(true);
   };
 
   // 删除账号
@@ -133,9 +157,28 @@ const AccountManager: React.FC = () => {
     <div className="account-manager">
       <div className="header">
         <h2>账号数据库管理</h2>
-        <button 
-          className="btn-primary" 
-          onClick={() => setShowAddForm(!showAddForm)}
+        <button
+          className="btn-primary"
+          onClick={() => {
+            if (showAddForm) {
+              setShowAddForm(false);
+              setIsEditing(false);
+              setFormData({
+                apiname: '',
+                username: '',
+                password: '',
+                authtoken: '',
+                usertobitid: undefined,
+                personid: '',
+                usecount: 0,
+                tokenstatus: true,
+                accountstatus: true,
+                accounttype: 'free',
+              });
+            } else {
+              setShowAddForm(true);
+            }
+          }}
           disabled={loading}
         >
           {showAddForm ? '取消' : '添加账号'}
@@ -146,7 +189,7 @@ const AccountManager: React.FC = () => {
 
       {showAddForm && (
         <form onSubmit={handleSubmit} className="account-form">
-          <h3>添加新账号</h3>
+          <h3>{isEditing ? '编辑账号' : '添加新账号'}</h3>
           
           <div className="form-row">
             <div className="form-group">
@@ -155,6 +198,7 @@ const AccountManager: React.FC = () => {
                 value={formData.apiname}
                 onChange={(e) => setFormData({ ...formData, apiname: e.target.value })}
                 required
+                disabled={isEditing}
               >
                 <option value="">选择一个渠道</option>
                 {channels.map((channel) => (
@@ -173,6 +217,7 @@ const AccountManager: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 required
                 placeholder="账号用户名"
+                disabled={isEditing}
               />
             </div>
           </div>
@@ -233,6 +278,17 @@ const AccountManager: React.FC = () => {
               />
             </div>
 
+            <div className="form-group">
+              <label>账号类型</label>
+              <select
+                value={formData.accounttype}
+                onChange={(e) => setFormData({ ...formData, accounttype: e.target.value })}
+              >
+                <option value="free">Free</option>
+                <option value="pro">Pro</option>
+              </select>
+            </div>
+
             <div className="form-group checkbox-group">
               <label>
                 <input
@@ -256,12 +312,27 @@ const AccountManager: React.FC = () => {
 
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? '添加中...' : '添加'}
+              {loading ? (isEditing ? '更新中...' : '添加中...') : (isEditing ? '更新' : '添加')}
             </button>
-            <button 
-              type="button" 
-              className="btn-secondary" 
-              onClick={() => setShowAddForm(false)}
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setShowAddForm(false);
+                setIsEditing(false);
+                setFormData({
+                  apiname: '',
+                  username: '',
+                  password: '',
+                  authtoken: '',
+                  usertobitid: undefined,
+                  personid: '',
+                  usecount: 0,
+                  tokenstatus: true,
+                  accountstatus: true,
+                  accounttype: 'free',
+                });
+              }}
               disabled={loading}
             >
               取消
@@ -291,6 +362,7 @@ const AccountManager: React.FC = () => {
                   <th>使用次数</th>
                   <th>Token 状态</th>
                   <th>账号状态</th>
+                  <th>账号类型</th>
                   <th>创建时间</th>
                   <th>操作</th>
                 </tr>
@@ -326,6 +398,11 @@ const AccountManager: React.FC = () => {
                       </span>
                     </td>
                     <td>
+                      <span className={`status-badge ${account.accounttype === 'pro' ? 'active' : 'inactive'}`}>
+                        {account.accounttype === 'pro' ? 'Pro' : 'Free'}
+                      </span>
+                    </td>
+                    <td>
                       {account.createtime ? (
                         <span className="createtime">
                           {new Date(account.createtime).toLocaleString('zh-CN')}
@@ -335,6 +412,14 @@ const AccountManager: React.FC = () => {
                       )}
                     </td>
                     <td>
+                      <button
+                        className="btn-secondary btn-small"
+                        onClick={() => handleEdit(account)}
+                        disabled={loading}
+                        style={{ marginRight: '5px' }}
+                      >
+                        编辑
+                      </button>
                       <button
                         className="btn-danger btn-small"
                         onClick={() => handleDelete(account.apiname, account.username)}

@@ -9,6 +9,7 @@ const ChannelManager: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedChannels, setSelectedChannels] = useState<Set<number>>(new Set());
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [newChannel, setNewChannel] = useState<ChannelRequest>({
     channelname: '',
     channeltype: 'openai',
@@ -18,7 +19,8 @@ const ChannelManager: React.FC = () => {
     maxconcurrent: 10,
     timeout: 30,
     priority: 1,
-    description: ''
+    description: '',
+    accountcount: 0
   });
 
   // 加载渠道列表
@@ -62,8 +64,8 @@ const ChannelManager: React.FC = () => {
     }
   };
 
-  // 添加渠道
-  const handleAddChannel = async () => {
+  // 添加/更新渠道
+  const handleSaveChannel = async () => {
     if (!newChannel.channelname || !newChannel.channeltype) {
       alert('请填写必填字段：渠道名称和类型');
       return;
@@ -71,12 +73,33 @@ const ChannelManager: React.FC = () => {
 
     try {
       setLoading(true);
-      const response = await api.post('/aichat/channel/add', [newChannel]);
-      const result = response.data;
+      const endpoint = isEditing ? '/aichat/channel/update' : '/aichat/channel/add';
+      // 对于更新，我们需要确保 ID 存在
+      if (isEditing && !newChannel.id) {
+        alert('更新失败：缺少渠道 ID');
+        return;
+      }
+
+      // 如果是更新，后端期望的是单个对象而不是数组（根据 AiApi.cc 的实现，update 接收单个对象，add 接收数组）
+      // 等等，查看 AiApi.cc 的 channelUpdate 实现，它也是接收 jsonPtr，然后 `auto& reqBody = *jsonPtr;`
+      // 如果 jsonPtr 是数组，这里可能会有问题。让我们再确认一下 AiApi.cc 的 channelUpdate 实现。
+      // AiApi.cc 中 channelUpdate: auto& reqBody = *jsonPtr; Channelinfo_st channelInfo; ...
+      // 这意味着它期望的是一个 JSON 对象，而不是数组。
+      // 而 channelAdd: for (auto &reqBody : *jsonPtr) ... 意味着它期望数组。
       
-      if (result[0].status === 'success') {
-        alert(`渠道 "${result[0].channelname}" 添加成功`);
+      let response;
+      if (isEditing) {
+         response = await api.post(endpoint, newChannel);
+      } else {
+         response = await api.post(endpoint, [newChannel]);
+      }
+
+      const result = isEditing ? response.data : response.data[0];
+      
+      if (result.status === 'success') {
+        alert(`渠道 "${isEditing ? newChannel.channelname : result.channelname}" ${isEditing ? '更新' : '添加'}成功`);
         setShowAddDialog(false);
+        setIsEditing(false);
         setNewChannel({
           channelname: '',
           channeltype: 'openai',
@@ -86,18 +109,38 @@ const ChannelManager: React.FC = () => {
           maxconcurrent: 10,
           timeout: 30,
           priority: 1,
-          description: ''
+          description: '',
+          accountcount: 0
         });
         await loadChannels();
       } else {
-        alert(`添加失败: ${result[0].message}`);
+        alert(`${isEditing ? '更新' : '添加'}失败: ${result.message}`);
       }
     } catch (err) {
-      alert('添加渠道失败');
-      console.error('添加渠道失败:', err);
+      alert(`${isEditing ? '更新' : '添加'}渠道失败`);
+      console.error(`${isEditing ? '更新' : '添加'}渠道失败:`, err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // 编辑渠道
+  const handleEdit = (channel: ChannelInfo) => {
+    setNewChannel({
+      id: channel.id,
+      channelname: channel.channelname,
+      channeltype: channel.channeltype,
+      channelurl: channel.channelurl || '',
+      channelkey: channel.channelkey || '',
+      channelstatus: channel.channelstatus,
+      maxconcurrent: channel.maxconcurrent,
+      timeout: channel.timeout,
+      priority: channel.priority,
+      description: channel.description || '',
+      accountcount: channel.accountcount || 0
+    });
+    setIsEditing(true);
+    setShowAddDialog(true);
   };
 
   // 删除选中的渠道
@@ -167,9 +210,24 @@ const ChannelManager: React.FC = () => {
       <div className="header">
         <h2>渠道管理</h2>
         <div className="actions">
-          <button 
-            className="btn-primary" 
-            onClick={() => setShowAddDialog(true)}
+          <button
+            className="btn-primary"
+            onClick={() => {
+              setIsEditing(false);
+              setNewChannel({
+                channelname: '',
+                channeltype: 'openai',
+                channelurl: '',
+                channelkey: '',
+                channelstatus: true,
+                maxconcurrent: 10,
+                timeout: 30,
+                priority: 1,
+                description: '',
+                accountcount: 0
+              });
+              setShowAddDialog(true);
+            }}
             disabled={loading}
           >
             添加渠道
@@ -210,6 +268,7 @@ const ChannelManager: React.FC = () => {
               <th>并发数</th>
               <th>超时(秒)</th>
               <th>优先级</th>
+              <th>目标账号数</th>
               <th>描述</th>
               <th>创建时间</th>
               <th>更新时间</th>
@@ -249,10 +308,19 @@ const ChannelManager: React.FC = () => {
                   <td>{channel.maxconcurrent}</td>
                   <td>{channel.timeout}</td>
                   <td>{channel.priority}</td>
+                  <td>{channel.accountcount || 0}</td>
                   <td className="description">{channel.description || '-'}</td>
                   <td>{channel.createtime}</td>
                   <td>{channel.updatetime}</td>
                   <td>
+                    <button
+                      className="btn-sm btn-secondary"
+                      onClick={() => handleEdit(channel)}
+                      disabled={loading}
+                      style={{ marginRight: '5px' }}
+                    >
+                      编辑
+                    </button>
                     <button
                       className="btn-sm btn-danger"
                       onClick={async () => {
@@ -277,7 +345,7 @@ const ChannelManager: React.FC = () => {
         <div className="dialog-overlay" onClick={() => setShowAddDialog(false)}>
           <div className="dialog" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
-              <h3>添加渠道</h3>
+              <h3>{isEditing ? '编辑渠道' : '添加渠道'}</h3>
               <button className="close-btn" onClick={() => setShowAddDialog(false)}>
                 ✕
               </button>
@@ -350,6 +418,15 @@ const ChannelManager: React.FC = () => {
                     min="1"
                   />
                 </div>
+                <div className="form-group">
+                  <label>目标账号数量 (0表示不自动注册)</label>
+                  <input
+                    type="number"
+                    value={newChannel.accountcount}
+                    onChange={(e) => setNewChannel({ ...newChannel, accountcount: parseInt(e.target.value) || 0 })}
+                    min="0"
+                  />
+                </div>
               </div>
               <div className="form-group">
                 <label>描述</label>
@@ -375,8 +452,8 @@ const ChannelManager: React.FC = () => {
               <button className="btn-secondary" onClick={() => setShowAddDialog(false)}>
                 取消
               </button>
-              <button className="btn-primary" onClick={handleAddChannel} disabled={loading}>
-                {loading ? '添加中...' : '确认添加'}
+              <button className="btn-primary" onClick={handleSaveChannel} disabled={loading}>
+                {loading ? (isEditing ? '更新中...' : '添加中...') : (isEditing ? '确认更新' : '确认添加')}
               </button>
             </div>
           </div>

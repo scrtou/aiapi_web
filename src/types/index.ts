@@ -10,6 +10,7 @@ export interface AccountInfo {
   tokenstatus?: boolean;
   accountstatus?: boolean;
   createtime?: string;
+  accounttype?: string;
 }
 
 // 账号添加/删除请求
@@ -23,6 +24,7 @@ export interface AccountRequest {
   usecount?: number;
   tokenstatus?: boolean;
   accountstatus?: boolean;
+  accounttype?: string;
 }
 
 // 账号操作响应
@@ -59,6 +61,7 @@ export interface ChannelInfo {
   description: string;
   createtime: string;
   updatetime: string;
+  accountcount?: number;
 }
 
 // 渠道添加/更新请求
@@ -73,6 +76,7 @@ export interface ChannelRequest {
   timeout?: number;
   priority?: number;
   description?: string;
+  accountcount?: number;
 }
 
 // 渠道操作响应
