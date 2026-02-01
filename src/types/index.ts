@@ -62,6 +62,7 @@ export interface ChannelInfo {
   createtime: string;
   updatetime: string;
   accountcount?: number;
+  supports_tool_calls?: boolean;
 }
 
 // 渠道添加/更新请求
@@ -77,6 +78,7 @@ export interface ChannelRequest {
   priority?: number;
   description?: string;
   accountcount?: number;
+  supports_tool_calls?: boolean;
 }
 
 // 渠道操作响应

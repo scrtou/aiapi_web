@@ -20,7 +20,8 @@ const ChannelManager: React.FC = () => {
     timeout: 30,
     priority: 1,
     description: '',
-    accountcount: 0
+    accountcount: 0,
+    supports_tool_calls: false
   });
 
   // 加载渠道列表
@@ -110,7 +111,8 @@ const ChannelManager: React.FC = () => {
           timeout: 30,
           priority: 1,
           description: '',
-          accountcount: 0
+          accountcount: 0,
+          supports_tool_calls: false
         });
         await loadChannels();
       } else {
@@ -125,20 +127,21 @@ const ChannelManager: React.FC = () => {
   };
 
   // 编辑渠道
-  const handleEdit = (channel: ChannelInfo) => {
-    setNewChannel({
-      id: channel.id,
-      channelname: channel.channelname,
-      channeltype: channel.channeltype,
-      channelurl: channel.channelurl || '',
-      channelkey: channel.channelkey || '',
-      channelstatus: channel.channelstatus,
-      maxconcurrent: channel.maxconcurrent,
-      timeout: channel.timeout,
-      priority: channel.priority,
-      description: channel.description || '',
-      accountcount: channel.accountcount || 0
-    });
+    const handleEdit = (channel: ChannelInfo) => {
+      setNewChannel({
+        id: channel.id,
+        channelname: channel.channelname,
+        channeltype: channel.channeltype,
+        channelurl: channel.channelurl || '',
+        channelkey: channel.channelkey || '',
+        channelstatus: channel.channelstatus,
+        maxconcurrent: channel.maxconcurrent,
+        timeout: channel.timeout,
+        priority: channel.priority,
+        description: channel.description || '',
+        accountcount: channel.accountcount || 0,
+        supports_tool_calls: channel.supports_tool_calls || false
+      });
     setIsEditing(true);
     setShowAddDialog(true);
   };
@@ -224,7 +227,8 @@ const ChannelManager: React.FC = () => {
                 timeout: 30,
                 priority: 1,
                 description: '',
-                accountcount: 0
+                accountcount: 0,
+                supports_tool_calls: false
               });
               setShowAddDialog(true);
             }}
@@ -265,6 +269,7 @@ const ChannelManager: React.FC = () => {
               <th>类型</th>
               <th>URL</th>
               <th>状态</th>
+              <th>工具调用</th>
               <th>并发数</th>
               <th>超时(秒)</th>
               <th>优先级</th>
@@ -278,7 +283,7 @@ const ChannelManager: React.FC = () => {
           <tbody>
             {channels.length === 0 ? (
               <tr>
-                <td colSpan={13} className="empty-message">
+                <td colSpan={15} className="empty-message">
                   暂无渠道数据
                 </td>
               </tr>
@@ -304,6 +309,11 @@ const ChannelManager: React.FC = () => {
                     >
                       {channel.channelstatus ? '✓ 启用' : '✗ 禁用'}
                     </button>
+                  </td>
+                  <td>
+                    <span className={`tool-call-badge ${channel.supports_tool_calls ? 'supported' : 'not-supported'}`}>
+                      {channel.supports_tool_calls ? '✓ 支持' : '✗ 不支持'}
+                    </span>
                   </td>
                   <td>{channel.maxconcurrent}</td>
                   <td>{channel.timeout}</td>
@@ -437,7 +447,7 @@ const ChannelManager: React.FC = () => {
                   rows={3}
                 />
               </div>
-              <div className="form-group">
+              <div className="form-group checkbox-group">
                 <label>
                   <input
                     type="checkbox"
@@ -445,6 +455,14 @@ const ChannelManager: React.FC = () => {
                     onChange={(e) => setNewChannel({ ...newChannel, channelstatus: e.target.checked })}
                   />
                   启用渠道
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={newChannel.supports_tool_calls}
+                    onChange={(e) => setNewChannel({ ...newChannel, supports_tool_calls: e.target.checked })}
+                  />
+                  支持工具调用 (Function Calling)
                 </label>
               </div>
             </div>

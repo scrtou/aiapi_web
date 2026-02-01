@@ -341,3 +341,40 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 工具调用徽章 */
+.tool-call-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tool-call-badge.supported {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.tool-call-badge.not-supported {
+  background-color: #6c757d;
+  color: white;
+}
+
+/* 复选框组 */
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.checkbox-group label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: normal;
+}
+
+.checkbox-group label input[type="checkbox"] {
+  margin-right: 8px;
+}
