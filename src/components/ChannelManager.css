@@ -280,9 +280,12 @@
   color: var(--text-primary);
 }
 
-.dialog-body {
+.dialog-body,
+.dialog-content {
   padding: 1.25rem;
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .dialog-footer {
