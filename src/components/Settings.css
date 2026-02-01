@@ -1,181 +1,268 @@
+/* 设置页面样式 */
 .settings {
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .settings .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .settings .header h2 {
   margin: 0;
-  font-size: 24px;
-  color: #333;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
+/* 设置表单卡片 */
 .settings-form {
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
 }
 
+/* 设置区块 */
 .settings-section {
-  margin-bottom: 24px;
+  margin-bottom: 1.5rem;
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
 }
 
 .settings-section h3 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-  color: #333;
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .settings-description {
-  margin: 0 0 20px 0;
-  color: #666;
-  font-size: 14px;
+  margin: 0 0 1.25rem 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
+/* 表单组 */
 .settings .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 1.25rem;
+}
+
+.settings .form-group:last-child {
+  margin-bottom: 0;
 }
 
 .settings .form-group label {
   display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: #333;
+  margin-bottom: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
-.settings .form-group input {
+.settings .form-group input,
+.settings .form-group select {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  box-sizing: border-box;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
 }
 
-.settings .form-group input:focus {
+.settings .form-group input:focus,
+.settings .form-group select:focus {
   outline: none;
-  border-color: #4CAF50;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.settings .form-group input::placeholder {
+  color: var(--text-muted);
 }
 
 .settings .form-group small {
   display: block;
-  margin-top: 4px;
-  color: #999;
-  font-size: 12px;
+  margin-top: 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
 }
 
+.settings .form-group select:disabled {
+  background-color: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* 当前配置显示 */
 .current-config {
-  background: #f5f5f5;
-  border-radius: 4px;
-  padding: 16px;
-  margin-top: 20px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-top: 1rem;
 }
 
 .current-config h4 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  color: #333;
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .config-display {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .config-label {
-  font-weight: 600;
-  color: #666;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
 }
 
 .config-display code {
-  background: white;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-family: 'Courier New', monospace;
-  color: #4CAF50;
-  border: 1px solid #ddd;
+  background-color: var(--bg-secondary);
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 0.8125rem;
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
 }
 
+/* 表单操作按钮 */
 .settings .form-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #eee;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
 }
 
+/* 设置信息卡片 */
 .settings-info {
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-  margin-top: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .settings-info h3 {
-  margin: 0 0 16px 0;
-  font-size: 18px;
-  color: #333;
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .settings-info ul {
   margin: 0;
-  padding-left: 20px;
+  padding-left: 1.25rem;
 }
 
 .settings-info li {
-  margin-bottom: 8px;
-  color: #666;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
   line-height: 1.6;
 }
 
+.settings-info li:last-child {
+  margin-bottom: 0;
+}
+
+/* 成功消息 */
 .success-message {
-  background: #d4edda;
-  border: 1px solid #c3e6cb;
-  color: #155724;
-  padding: 12px 16px;
-  border-radius: 4px;
-  margin-bottom: 20px;
   display: flex;
   align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background-color: #dcfce7;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-md);
+  color: #166534;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
 }
 
 .success-message::before {
   content: '✓';
-  margin-right: 8px;
   font-weight: bold;
+  font-size: 1rem;
 }
 
-.settings .form-group select {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  box-sizing: border-box;
-  background: white;
+/* 警告文本 */
+.warning-text {
+  color: var(--warning-color) !important;
+  font-weight: 500;
+}
+
+/* 按钮样式 */
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
   cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.settings .form-group select:focus {
-  outline: none;
-  border-color: #4CAF50;
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--primary-hover);
 }
 
-.settings .form-group select:disabled {
-  background: #f5f5f5;
-  color: #999;
+.btn-primary:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-.warning-text {
-  color: #ff6b35 !important;
+.btn-secondary {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.875rem;
   font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-tertiary);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .settings .form-actions {
+    flex-direction: column;
+  }
+
+  .settings .form-actions button {
+    width: 100%;
+  }
+
+  .config-display {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
