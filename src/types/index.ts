@@ -97,37 +97,72 @@ export interface ApiResponse {
 
 // ============ 错误统计与监控相关类型 ============
 
-// 时间序列数据点
+// 时间序列数据点（前端消费用）
 export interface TimeSeriesPoint {
-  timestamp: string;
+  timestamp: string; // ISO string
+  count: number;
+}
+
+// 后端时间序列桶（对应 /aichat/metrics/*/series 返回的 data[] 元素）
+export interface BackendTimeSeriesBucket {
+  bucket_start: string; // "YYYY-MM-DD HH:MM:SS" (UTC)
   count: number;
 }
 
 // 请求统计时间序列响应
 export interface RequestsSeriesResponse {
-  series: TimeSeriesPoint[];
-  total: number;
-  interval: string;
-  start_time: string;
-  end_time: string;
+  // 新接口（后端实际返回）
+  from: string;
+  to: string;
+  data: BackendTimeSeriesBucket[];
+
+  // 兼容旧字段（前端旧实现曾使用）
+  series?: TimeSeriesPoint[];
+  total?: number;
+  interval?: string;
+  start_time?: string;
+  end_time?: string;
 }
 
 // 错误统计时间序列响应
 export interface ErrorsSeriesResponse {
-  series: TimeSeriesPoint[];
-  total: number;
-  interval: string;
-  start_time: string;
-  end_time: string;
+  // 新接口（后端实际返回）
+  from: string;
+  to: string;
+  data: BackendTimeSeriesBucket[];
+
+  // 兼容旧字段（前端旧实现曾使用）
+  series?: TimeSeriesPoint[];
+  total?: number;
+  interval?: string;
+  start_time?: string;
+  end_time?: string;
 }
 
-// 错误事件记录
+// 后端错误事件（对应 /aichat/metrics/errors/events 返回的 data[] 元素）
+export interface BackendErrorEvent {
+  id: number;
+  ts: string; // "YYYY-MM-DD HH:MM:SS" (UTC)
+  severity: string;
+  domain: string;
+  type: string;
+  provider?: string;
+  model?: string;
+  client_type?: string;
+  api_kind?: string;
+  stream?: boolean;
+  http_status?: number;
+  request_id?: string;
+  message: string;
+}
+
+// 错误事件记录（前端消费用）
 export interface ErrorEvent {
   id: number;
   request_id: string;
-  timestamp: string;
-  domain: 'SESSION_GATE' | 'UPSTREAM' | 'INTERNAL' | 'TOOL_BRIDGE';
-  severity: 'ERROR' | 'WARN';
+  timestamp: string; // ISO string
+  domain: 'SESSION_GATE' | 'UPSTREAM' | 'INTERNAL' | 'TOOL_BRIDGE' | string;
+  severity: 'ERROR' | 'WARN' | string;
   error_code: string;
   message: string;
   model?: string;
@@ -140,15 +175,29 @@ export interface ErrorEvent {
 
 // 错误事件列表响应
 export interface ErrorEventsResponse {
-  events: ErrorEvent[];
-  total: number;
-  page: number;
-  page_size: number;
-  has_more: boolean;
+  // 新接口（后端实际返回）
+  from: string;
+  to: string;
+  limit: number;
+  offset: number;
+  data: BackendErrorEvent[];
+  count: number; // 当前返回条数
+
+  // 兼容旧字段（前端旧实现曾使用）
+  events?: ErrorEvent[];
+  total?: number;
+  page?: number;
+  page_size?: number;
+  has_more?: boolean;
 }
 
 // 错误事件详情响应
 export interface ErrorEventDetailResponse extends ErrorEvent {
+  // 新接口（后端实际返回）
+  detail_json?: string;
+  raw_snippet?: string;
+
+  // 兼容旧字段（前端旧实现曾使用）
   stack_trace?: string;
   request_body?: string;
   response_body?: string;
@@ -156,12 +205,22 @@ export interface ErrorEventDetailResponse extends ErrorEvent {
 
 // 查询参数
 export interface MetricsQueryParams {
+  // 新接口参数（后端实际使用）
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+  domain?: string;
+  severity?: string;
+  type?: string;
+  provider?: string;
+  model?: string;
+  client_type?: string;
+
+  // 兼容旧参数（前端旧实现曾使用）
   start_time?: string;
   end_time?: string;
   interval?: '1m' | '5m' | '15m' | '1h' | '6h' | '1d';
-  domain?: string;
-  severity?: string;
-  model?: string;
   channel?: string;
   page?: number;
   page_size?: number;
@@ -175,4 +234,75 @@ export interface DashboardSummary {
   avg_latency_ms: number;
   top_error_codes: { code: string; count: number }[];
   errors_by_domain: { domain: string; count: number }[];
+}
+
+// ============ 服务状态监控相关类型 ============
+
+// 服务健康状态
+export type ServiceHealthStatus = 'OK' | 'DEGRADED' | 'DOWN' | 'UNKNOWN';
+
+// 状态桶数据（时间序列）
+export interface StatusBucket {
+  bucket_start: string;    // "YYYY-MM-DD HH:MM:SS" (UTC)
+  request_count: number;
+  error_count: number;
+  error_rate: number;
+}
+
+// 服务状态概览响应
+export interface StatusSummaryResponse {
+  total_requests: number;
+  total_errors: number;
+  error_rate: number;
+  channel_count: number;
+  model_count: number;
+  healthy_channels: number;
+  degraded_channels: number;
+  down_channels: number;
+  overall_status: ServiceHealthStatus;
+  buckets: StatusBucket[];
+}
+
+// 渠道状态项
+export interface ChannelStatusItem {
+  channel_id: string;
+  channel_name: string;
+  total_requests: number;
+  total_errors: number;
+  error_rate: number;
+  status: ServiceHealthStatus;
+  last_request_time: string;
+  buckets: StatusBucket[];
+}
+
+// 渠道状态列表响应
+export interface ChannelStatusResponse {
+  data: ChannelStatusItem[];
+  count: number;
+}
+
+// 模型状态项
+export interface ModelStatusItem {
+  model: string;
+  provider: string;
+  total_requests: number;
+  total_errors: number;
+  error_rate: number;
+  status: ServiceHealthStatus;
+  last_request_time: string;
+  buckets: StatusBucket[];
+}
+
+// 模型状态列表响应
+export interface ModelStatusResponse {
+  data: ModelStatusItem[];
+  count: number;
+}
+
+// 状态查询参数
+export interface StatusQueryParams {
+  from?: string;
+  to?: string;
+  provider?: string;
+  model?: string;
 }

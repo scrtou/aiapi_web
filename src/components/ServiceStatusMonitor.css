@@ -1,0 +1,594 @@
+/* ============ 服务状态监控样式 ============ */
+
+/* CSS 变量 */
+.service-status-monitor {
+  --primary-color: #6366f1;
+  --status-ok: #22c55e;
+  --status-degraded: #f59e0b;
+  --status-down: #ef4444;
+  --status-unknown: #6b7280;
+  --bar-ok: #22c55e;
+  --bar-warn: #f59e0b;
+  --bar-error: #ef4444;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border-color: #e5e7eb;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+/* 深色模式 */
+@media (prefers-color-scheme: dark) {
+  .service-status-monitor {
+    --bg-primary: #1f2937;
+    --bg-secondary: #111827;
+    --bg-tertiary: #374151;
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --text-muted: #9ca3af;
+    --border-color: #374151;
+  }
+}
+
+/* 主容器 */
+.service-status-monitor {
+  padding: 24px;
+  background: var(--bg-secondary);
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ============ 头部 ============ */
+.monitor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.monitor-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.monitor-header h1 svg {
+  width: 28px;
+  height: 28px;
+  color: var(--primary-color);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.time-range-select select {
+  padding: 8px 32px 8px 12px;
+  font-size: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.time-range-select select:hover {
+  border-color: var(--primary-color);
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: white;
+  background: var(--primary-color);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refresh-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.refresh-btn:disabled svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ============ 错误提示 ============ */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  color: #991b1b;
+}
+
+.error-banner svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.error-banner span {
+  flex: 1;
+}
+
+.error-banner button {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #991b1b;
+  background: white;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.error-banner button:hover {
+  background: #fef2f2;
+}
+
+/* ============ 统计卡片网格 ============ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: currentColor;
+  opacity: 0.1;
+}
+
+.stat-icon svg {
+  width: 24px;
+  height: 24px;
+  opacity: 10;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.stat-title {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.stat-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ============ 状态概览 ============ */
+.status-overview {
+  display: flex;
+  gap: 24px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.overview-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.overview-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.overview-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.overview-breakdown {
+  display: flex;
+  gap: 12px;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-color);
+}
+
+.overview-breakdown span {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.overview-breakdown .status-ok {
+  color: var(--status-ok);
+}
+
+.overview-breakdown .status-degraded {
+  color: var(--status-degraded);
+}
+
+.overview-breakdown .status-down {
+  color: var(--status-down);
+}
+
+/* ============ 标签页 ============ */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 4px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  width: fit-content;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  color: var(--primary-color);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============ 数据表格容器 ============ */
+.status-table-container {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+/* 加载占位 */
+.loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.loading-placeholder svg {
+  width: 32px;
+  height: 32px;
+  animation: spin 1s linear infinite;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state svg {
+  width: 48px;
+  height: 48px;
+  opacity: 0.5;
+}
+
+/* ============ 状态表格 ============ */
+.status-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.status-table thead {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.status-table th {
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.15s;
+}
+
+.status-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.status-table tbody tr:hover {
+  background: var(--bg-secondary);
+}
+
+.status-table td {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+/* 表格单元格类型 */
+.name-cell {
+  font-weight: 500;
+}
+
+.name-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.name-with-icon svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.provider-cell {
+  color: var(--text-secondary);
+}
+
+.status-cell {
+  white-space: nowrap;
+}
+
+.number-cell {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 13px;
+  text-align: right;
+}
+
+.chart-cell {
+  width: 140px;
+}
+
+.time-cell {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ============ 状态徽章 ============ */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.status-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.status-badge span {
+  color: white;
+}
+
+.status-badge.status-ok {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.status-badge.status-ok span {
+  color: var(--status-ok);
+}
+
+.status-badge.status-degraded {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.status-badge.status-degraded span {
+  color: var(--status-degraded);
+}
+
+.status-badge.status-down {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.status-badge.status-down span {
+  color: var(--status-down);
+}
+
+.status-badge.status-unknown {
+  background: rgba(107, 114, 128, 0.1);
+}
+
+.status-badge.status-unknown span {
+  color: var(--status-unknown);
+}
+
+/* ============ 迷你柱状图 ============ */
+.mini-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.mini-bar {
+  border-radius: 1px;
+  transition: opacity 0.15s;
+  cursor: pointer;
+}
+
+.mini-bar:hover {
+  opacity: 0.8;
+}
+
+.mini-bars-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ============ 响应式 ============ */
+@media (max-width: 768px) {
+  .service-status-monitor {
+    padding: 16px;
+  }
+
+  .monitor-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .header-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .status-overview {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .overview-breakdown {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .tabs {
+    width: 100%;
+  }
+
+  .tab {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .status-table-container {
+    overflow-x: auto;
+  }
+
+  .status-table {
+    min-width: 700px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+}

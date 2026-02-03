@@ -4,6 +4,7 @@ import ChannelManager from './components/ChannelManager'
 import ModelList from './components/ModelList'
 import Settings from './components/Settings'
 import ErrorMonitor from './components/ErrorMonitor'
+import ServiceStatusMonitor from './components/ServiceStatusMonitor'
 import './App.css'
 
 // 图标组件
@@ -73,9 +74,14 @@ const Icons = {
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
     </svg>
   ),
+  Activity: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+    </svg>
+  ),
 }
 
-type TabType = 'accounts' | 'channels' | 'models' | 'monitor' | 'settings'
+type TabType = 'accounts' | 'channels' | 'models' | 'monitor' | 'status' | 'settings'
 
 interface NavItem {
   id: TabType
@@ -95,6 +101,7 @@ const navItems: { section: string; items: NavItem[] }[] = [
   {
     section: '监控',
     items: [
+      { id: 'status', label: '服务状态', icon: Icons.Activity },
       { id: 'monitor', label: '错误监控', icon: Icons.Monitor },
     ],
   },
@@ -110,6 +117,7 @@ const pageTitles: Record<TabType, string> = {
   accounts: '账号管理',
   channels: '渠道管理',
   models: '模型列表',
+  status: '服务状态监控',
   monitor: '错误统计与监控',
   settings: '系统设置',
 }
@@ -132,6 +140,8 @@ function App() {
         return <ChannelManager />
       case 'models':
         return <ModelList />
+      case 'status':
+        return <ServiceStatusMonitor />
       case 'monitor':
         return <ErrorMonitor />
       case 'settings':

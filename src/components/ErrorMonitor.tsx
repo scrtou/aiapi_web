@@ -91,6 +91,79 @@ const intervalOptions = [
   { value: '1d', label: '1天' },
 ];
 
+// ===== 后端时间格式适配 =====
+// 后端接口使用 UTC "YYYY-MM-DD HH:MM:SS"
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+const toBackendUtcString = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`;
+};
+
+// 后端返回 UTC "YYYY-MM-DD HH:MM:SS"，转换为可被 Date() 解析的 ISO
+const backendUtcToIso = (utcStr: string) => {
+  if (!utcStr) return '';
+  // 若已是 ISO / 可解析格式，直接标准化
+  if (utcStr.includes('T')) {
+    const d = new Date(utcStr);
+    return isNaN(d.getTime()) ? utcStr : d.toISOString();
+  }
+  const iso = `${utcStr.trim().replace(' ', 'T')}Z`;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? iso : d.toISOString();
+};
+
+const mapSeriesToPoints = (payload: any): TimeSeriesPoint[] => {
+  const arr = payload?.data ?? payload?.series;
+  if (!Array.isArray(arr)) return [];
+
+  // 新接口：[{ bucket_start, count }]
+  if (arr.length > 0 && typeof arr[0]?.bucket_start === 'string') {
+    return arr.map((b: any) => ({
+      timestamp: backendUtcToIso(b.bucket_start),
+      count: Number(b.count) || 0,
+    }));
+  }
+
+  // 旧接口：[{ timestamp, count }]
+  if (arr.length > 0 && typeof arr[0]?.timestamp === 'string') {
+    return arr.map((p: any) => ({
+      timestamp: p.timestamp,
+      count: Number(p.count) || 0,
+    }));
+  }
+
+  return [];
+};
+
+const sumCounts = (points: TimeSeriesPoint[]) => points.reduce((acc, p) => acc + (Number(p.count) || 0), 0);
+
+const mapBackendEventToErrorEvent = (ev: any): ErrorEvent => {
+  // 旧接口已是前端结构
+  if (typeof ev?.timestamp === 'string') return ev as ErrorEvent;
+
+  return {
+    id: Number(ev?.id) || 0,
+    request_id: ev?.request_id ?? '',
+    timestamp: backendUtcToIso(ev?.ts),
+    domain: ev?.domain ?? 'INTERNAL',
+    severity: ev?.severity ?? 'ERROR',
+    error_code: ev?.type ?? 'unknown',
+    message: ev?.message ?? '',
+    model: ev?.model,
+    provider: ev?.provider,
+    http_status: ev?.http_status,
+    metadata: {
+      client_type: ev?.client_type,
+      api_kind: ev?.api_kind,
+      stream: ev?.stream,
+      // 详情接口字段（如存在）
+      detail_json: ev?.detail_json,
+      raw_snippet: ev?.raw_snippet,
+    },
+  };
+};
+
 // 域选项
 const domainOptions = [
   { value: '', label: '全部域' },
@@ -342,62 +415,73 @@ const ErrorMonitor: React.FC = () => {
     try {
       const { start_time, end_time } = getTimeRange();
       const params: MetricsQueryParams = {
-        start_time,
-        end_time,
-        interval,
+        from: toBackendUtcString(start_time),
+        to: toBackendUtcString(end_time),
       };
-      
+
       const response = await api.get('/aichat/metrics/requests/series', { params });
       const data = response.data;
-      
-      setRequestsSeries(data.series || []);
-      setTotalRequests(data.total || 0);
+
+      const points = mapSeriesToPoints(data);
+      setRequestsSeries(points);
+      setTotalRequests(sumCounts(points));
     } catch (err) {
       console.error('加载请求统计失败:', err);
     }
-  }, [getTimeRange, interval]);
+  }, [getTimeRange]);
 
   // 加载错误统计时间序列
   const loadErrorsSeries = useCallback(async () => {
     try {
       const { start_time, end_time } = getTimeRange();
       const params: MetricsQueryParams = {
-        start_time,
-        end_time,
-        interval,
+        from: toBackendUtcString(start_time),
+        to: toBackendUtcString(end_time),
         ...(domain && { domain }),
         ...(severity && { severity }),
       };
-      
+
       const response = await api.get('/aichat/metrics/errors/series', { params });
       const data = response.data;
-      
-      setErrorsSeries(data.series || []);
-      setTotalErrors(data.total || 0);
+
+      const points = mapSeriesToPoints(data);
+      setErrorsSeries(points);
+      setTotalErrors(sumCounts(points));
     } catch (err) {
       console.error('加载错误统计失败:', err);
     }
-  }, [getTimeRange, interval, domain, severity]);
+  }, [getTimeRange, domain, severity]);
 
   // 加载错误事件列表
   const loadErrorEvents = useCallback(async (page: number = 1) => {
     try {
       const { start_time, end_time } = getTimeRange();
+
+      // 后端使用 limit/offset；为判定 hasMore，这里多取 1 条
+      const pageSize = 20;
+      const offset = (page - 1) * pageSize;
+      const limit = pageSize + 1;
+
       const params: MetricsQueryParams = {
-        start_time,
-        end_time,
-        page,
-        page_size: 20,
+        from: toBackendUtcString(start_time),
+        to: toBackendUtcString(end_time),
+        limit,
+        offset,
         ...(domain && { domain }),
         ...(severity && { severity }),
       };
-      
+
       const response = await api.get('/aichat/metrics/errors/events', { params });
       const data = response.data;
-      
-      setEvents(data.events || []);
-      setEventsTotal(data.total || 0);
-      setHasMore(data.has_more || false);
+
+      const rawEvents: any[] = Array.isArray(data?.data) ? data.data : (Array.isArray(data?.events) ? data.events : []);
+      const more = rawEvents.length > pageSize;
+      const pageEvents = rawEvents.slice(0, pageSize).map(mapBackendEventToErrorEvent);
+
+      setEvents(pageEvents);
+      // 后端不提供 total，这里显示“已加载”数量（offset + 当前页条数）
+      setEventsTotal(offset + pageEvents.length);
+      setHasMore(more || Boolean(data?.has_more));
       setCurrentPage(page);
     } catch (err) {
       console.error('加载错误事件失败:', err);
@@ -436,7 +520,7 @@ const ErrorMonitor: React.FC = () => {
   const handleViewEvent = async (event: ErrorEvent) => {
     try {
       const response = await api.get(`/aichat/metrics/errors/events/${event.id}`);
-      setSelectedEvent(response.data);
+      setSelectedEvent(mapBackendEventToErrorEvent(response.data));
     } catch {
       // 如果详情接口失败，使用列表中的数据
       setSelectedEvent(event);
@@ -550,7 +634,7 @@ const ErrorMonitor: React.FC = () => {
           color={parseFloat(errorRate) > 5 ? 'var(--error-color)' : 'var(--success-color)'}
         />
         <StatCard
-          title="事件记录"
+          title="已加载事件"
           value={eventsTotal.toLocaleString()}
           icon={Icons.Server}
           color="var(--info-color)"
@@ -601,7 +685,7 @@ const ErrorMonitor: React.FC = () => {
       <div className="events-section">
         <div className="events-header">
           <h3>错误事件列表</h3>
-          <span className="events-count">共 {eventsTotal} 条记录</span>
+          <span className="events-count">已加载 {eventsTotal} 条</span>
         </div>
         <div className="events-table-wrapper">
           {loading ? (
