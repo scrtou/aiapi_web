@@ -78,9 +78,20 @@ const Icons = {
 
 // 将后端 UTC 时间字符串转换为 ISO 格式
 const backendUtcToIso = (utcStr: string): string => {
-  if (!utcStr) return '';
+  if (!utcStr || utcStr === '0' || utcStr === 'null' || utcStr === 'undefined') return '';
+  
+  // 检查是否已经是有效的日期格式
+  const trimmed = utcStr.trim();
+  if (!trimmed || trimmed.length < 10) return '';
+  
   // 后端格式: "YYYY-MM-DD HH:MM:SS"
-  const normalized = utcStr.replace(' ', 'T') + 'Z';
+  // 检查基本格式是否正确
+  const datePattern = /^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/;
+  if (!datePattern.test(trimmed)) {
+    return '';
+  }
+  
+  const normalized = trimmed.replace(' ', 'T') + 'Z';
   return normalized;
 };
 
@@ -96,9 +107,17 @@ const formatTime = (isoStr: string): string => {
   if (!isoStr) return '-';
   try {
     const d = new Date(isoStr);
+    // Check if the date is valid
+    if (isNaN(d.getTime())) {
+      return '-';
+    }
+    // 额外检查年份是否合理（避免1970等无效日期）
+    if (d.getFullYear() < 2020 || d.getFullYear() > 2100) {
+      return '-';
+    }
     return d.toLocaleString();
   } catch {
-    return isoStr;
+    return '-';
   }
 };
 
@@ -135,6 +154,84 @@ const getStatusText = (status: ServiceHealthStatus): string => {
     case 'DOWN': return '不可用';
     default: return '未知';
   }
+};
+
+// ============ 紧凑状态栏组件 ============
+const CompactStatusBar: React.FC<{
+  totalRequests: number;
+  totalErrors: number;
+  buckets: StatusBucket[];
+  label?: string;
+}> = ({ totalRequests, totalErrors, buckets, label }) => {
+  const successCount = totalRequests - totalErrors;
+  const availabilityRate = totalRequests > 0 
+    ? Math.round(((totalRequests - totalErrors) / totalRequests) * 100) 
+    : 100;
+  
+  return (
+    <div className="compact-status-bar">
+      {label && <div className="compact-status-label">{label}</div>}
+      <div className="compact-status-header">
+        <span className="compact-stat">
+          <span className="compact-stat-label">可用率</span>
+          <span className="compact-stat-value availability">{availabilityRate}%</span>
+        </span>
+        <span className="compact-stat">
+          <span className="compact-stat-label">请求</span>
+          <span className="compact-stat-value">{totalRequests}</span>
+        </span>
+        <span className="compact-stat">
+          <span className="compact-stat-label">成功</span>
+          <span className="compact-stat-value success">{successCount}</span>
+        </span>
+      </div>
+      <StatusHistoryBars buckets={buckets} />
+    </div>
+  );
+};
+
+// ============ 状态历史条形图组件 ============
+const StatusHistoryBars: React.FC<{
+  buckets: StatusBucket[];
+}> = ({ buckets }) => {
+  if (!buckets || buckets.length === 0) {
+    // 如果没有数据，显示60个灰色占位条
+    return (
+      <div className="status-history-bars">
+        {Array.from({ length: 60 }, (_, i) => (
+          <div key={i} className="status-bar status-bar-empty" title="无数据" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="status-history-bars">
+      {buckets.map((bucket, index) => {
+        const errorRatio = bucket.request_count > 0 
+          ? bucket.error_count / bucket.request_count 
+          : 0;
+        
+        // 根据错误率决定颜色
+        let barClass = 'status-bar-ok';  // 绿色
+        if (bucket.request_count === 0) {
+          barClass = 'status-bar-empty';  // 灰色（无请求）
+        } else if (errorRatio >= 0.1) {
+          barClass = 'status-bar-error';  // 红色
+        } else if (errorRatio >= 0.01) {
+          barClass = 'status-bar-warn';   // 黄色
+        }
+
+        return (
+          <div
+            key={index}
+            className={`status-bar ${barClass}`}
+            title={`${bucket.bucket_start}\n请求: ${bucket.request_count}\n错误: ${bucket.error_count}\n错误率: ${formatErrorRate(bucket.error_rate)}`}
+          />
+        );
+      })}
+    </div>
+  );
 };
 
 // ============ 迷你柱状图组件 ============
@@ -373,6 +470,14 @@ const ServiceStatusMonitor: React.FC = () => {
           <button onClick={loadData}>重试</button>
         </div>
       )}
+
+      {/* 紧凑状态栏 - 显示整体服务状态 */}
+      <CompactStatusBar
+        totalRequests={summary?.total_requests || 0}
+        totalErrors={summary?.total_errors || 0}
+        buckets={summary?.buckets || []}
+        label="整体服务状态"
+      />
 
       {/* 概览统计卡片 */}
       <div className="stats-grid">

@@ -169,6 +169,94 @@
   background: #fef2f2;
 }
 
+/* ============ 紧凑状态栏 ============ */
+.compact-status-bar {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.compact-status-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.compact-status-header {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 16px;
+}
+
+.compact-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.compact-stat-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.compact-stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.compact-stat-value.availability {
+  color: var(--status-ok);
+}
+
+.compact-stat-value.success {
+  color: var(--status-ok);
+}
+
+/* ============ 状态历史条形图 ============ */
+.status-history-bars {
+  display: flex;
+  gap: 2px;
+  height: 32px;
+  align-items: stretch;
+}
+
+.status-bar {
+  flex: 1;
+  min-width: 4px;
+  max-width: 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.status-bar:hover {
+  opacity: 0.8;
+  transform: scaleY(1.1);
+}
+
+.status-bar-ok {
+  background-color: var(--status-ok);
+}
+
+.status-bar-warn {
+  background-color: var(--status-degraded);
+}
+
+.status-bar-error {
+  background-color: var(--status-down);
+}
+
+.status-bar-empty {
+  background-color: var(--bg-tertiary);
+}
+
 /* ============ 统计卡片网格 ============ */
 .stats-grid {
   display: grid;
@@ -572,6 +660,19 @@
   .status-table {
     min-width: 700px;
   }
+
+  .compact-status-header {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .status-history-bars {
+    height: 24px;
+  }
+
+  .status-bar {
+    min-width: 3px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -590,5 +691,13 @@
 
   .stat-value {
     font-size: 20px;
+  }
+
+  .compact-status-header {
+    gap: 12px;
+  }
+
+  .compact-stat-value {
+    font-size: 16px;
   }
 }
