@@ -1,0 +1,250 @@
+/* 日志查看器样式 */
+.log-viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    height: 100%;
+  }
+  
+  .log-viewer .log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .log-viewer .log-header h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  
+  /* 工具栏 */
+  .log-toolbar {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+  }
+  
+  .toolbar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .toolbar-group label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  
+  .toolbar-group select,
+  .toolbar-group input[type="text"] {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    min-width: 140px;
+  }
+  
+  .toolbar-group input[type="text"] {
+    min-width: 200px;
+  }
+  
+  .toolbar-actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+    margin-left: auto;
+  }
+  
+  .auto-refresh-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  
+  .auto-refresh-toggle input[type="checkbox"] {
+    accent-color: var(--primary-color);
+    cursor: pointer;
+  }
+  
+  /* 日志级别过滤按钮 */
+  .level-filter {
+    display: flex;
+    gap: 0.375rem;
+  }
+  
+  .level-btn {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  
+  .level-btn:hover {
+    background-color: var(--bg-tertiary);
+  }
+  
+  .level-btn.active {
+    color: white;
+  }
+  
+  .level-btn.all.active {
+    background-color: #6b7280;
+    border-color: #6b7280;
+  }
+  
+  .level-btn.debug.active {
+    background-color: #9ca3af;
+    border-color: #9ca3af;
+  }
+  
+  .level-btn.info.active {
+    background-color: #22c55e;
+    border-color: #22c55e;
+  }
+  
+  .level-btn.warn.active {
+    background-color: #eab308;
+    border-color: #eab308;
+  }
+  
+  .level-btn.error.active {
+    background-color: #ef4444;
+    border-color: #ef4444;
+  }
+  
+  /* 日志内容区域 */
+  .log-content {
+    background-color: #1a1b26;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    overflow-y: auto;
+    overflow-x: auto;
+    min-height: 400px;
+    max-height: calc(100vh - 380px);
+    padding: 0.5rem 0;
+  }
+  
+  .log-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: #565f89;
+    font-size: 0.875rem;
+  }
+  
+  .log-line {
+    display: flex;
+    padding: 0.125rem 0.75rem;
+    transition: background-color 0.1s;
+    white-space: nowrap;
+  }
+  
+  .log-line:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .line-number {
+    min-width: 3.5rem;
+    text-align: right;
+    color: #565f89;
+    margin-right: 1rem;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  
+  .line-text {
+    color: #c0caf5;
+  }
+  
+  /* 日志级别颜色 */
+  .log-line.error .line-text {
+    color: #f7768e;
+  }
+  
+  .log-line.warn .line-text {
+    color: #e0af68;
+  }
+  
+  .log-line.info .line-text {
+    color: #9ece6a;
+  }
+  
+  .log-line.debug .line-text {
+    color: #7aa2f7;
+  }
+  
+  /* 状态栏 */
+  .log-statusbar {
+    display: flex;
+    gap: 1.5rem;
+    padding: 0.625rem 1rem;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+  
+  .auto-refresh-indicator {
+    color: #22c55e;
+    font-weight: 600;
+    animation: pulse 2s infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  /* 响应式 */
+  @media (max-width: 768px) {
+    .toolbar-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  
+    .toolbar-actions {
+      margin-left: 0;
+    }
+  
+    .toolbar-group select,
+    .toolbar-group input[type="text"] {
+      min-width: auto;
+      width: 100%;
+    }
+  
+    .log-statusbar {
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+  }
+  

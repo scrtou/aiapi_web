@@ -10,6 +10,11 @@ const AccountManager: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [autoRegistering, setAutoRegistering] = useState(false);
+  const [registerCount, setRegisterCount] = useState(1);
+  const [showRegisterInput, setShowRegisterInput] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   
   // 表单数据
   const [formData, setFormData] = useState<AccountRequest>({
@@ -153,38 +158,136 @@ const AccountManager: React.FC = () => {
     }
   };
 
+  // 刷新账号状态（token + 账号类型）
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    setStatusMessage(null);
+    try {
+      const response = await api.post('/aichat/account/refresh');
+      const data = response.data;
+      setStatusMessage(data.message || '刷新已在后台启动');
+      // 延迟 3 秒后重新加载账号列表
+      setTimeout(() => {
+        loadAccounts();
+        setStatusMessage(null);
+      }, 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '刷新账号状态失败');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // 自动注册账号
+  const handleAutoRegister = async () => {
+    if (registerCount < 1 || registerCount > 20) {
+      setError('注册数量必须在 1-20 之间');
+      return;
+    }
+    setAutoRegistering(true);
+    setError(null);
+    setStatusMessage(null);
+    try {
+      const response = await api.post('/aichat/account/autoregister', {
+        apiname: 'chaynsapi',
+        count: registerCount,
+      });
+      const data = response.data;
+      setStatusMessage(data.message || `正在后台注册 ${registerCount} 个账号`);
+      setShowRegisterInput(false);
+      // 延迟后重新加载账号列表
+      setTimeout(() => {
+        loadAccounts();
+      }, 10000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '自动注册失败');
+    } finally {
+      setAutoRegistering(false);
+    }
+  };
+
   return (
     <div className="account-manager">
       <div className="header">
         <h2>账号数据库管理</h2>
-        <button
-          className="btn-primary"
-          onClick={() => {
-            if (showAddForm) {
-              setShowAddForm(false);
-              setIsEditing(false);
-              setFormData({
-                apiname: '',
-                username: '',
-                password: '',
-                authtoken: '',
-                usertobitid: undefined,
-                personid: '',
-                usecount: 0,
-                tokenstatus: true,
-                accountstatus: true,
-                accounttype: 'free',
-              });
-            } else {
-              setShowAddForm(true);
-            }
-          }}
-          disabled={loading}
-        >
-          {showAddForm ? '取消' : '添加账号'}
-        </button>
+        <div className="header-actions">
+          <button
+            className="btn-refresh"
+            onClick={handleRefresh}
+            disabled={refreshing || loading}
+          >
+            {refreshing ? '⏳ 刷新中...' : '🔄 刷新账号状态'}
+          </button>
+          
+          <div className="auto-register-group">
+            {showRegisterInput ? (
+              <>
+                <input
+                  type="number"
+                  className="register-count-input"
+                  value={registerCount}
+                  onChange={(e) => setRegisterCount(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
+                  min={1}
+                  max={20}
+                  disabled={autoRegistering}
+                />
+                <button
+                  className="btn-register"
+                  onClick={handleAutoRegister}
+                  disabled={autoRegistering || loading}
+                >
+                  {autoRegistering ? '⏳ 注册中...' : '✅ 确认注册'}
+                </button>
+                <button
+                  className="btn-secondary btn-small"
+                  onClick={() => setShowRegisterInput(false)}
+                  disabled={autoRegistering}
+                >
+                  取消
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn-register"
+                onClick={() => setShowRegisterInput(true)}
+                disabled={loading}
+              >
+                ➕ 自动注册
+              </button>
+            )}
+          </div>
+
+          <button
+            className="btn-primary"
+            onClick={() => {
+              if (showAddForm) {
+                setShowAddForm(false);
+                setIsEditing(false);
+                setFormData({
+                  apiname: '',
+                  username: '',
+                  password: '',
+                  authtoken: '',
+                  usertobitid: undefined,
+                  personid: '',
+                  usecount: 0,
+                  tokenstatus: true,
+                  accountstatus: true,
+                  accounttype: 'free',
+                });
+              } else {
+                setShowAddForm(true);
+              }
+            }}
+            disabled={loading}
+          >
+            {showAddForm ? '取消' : '添加账号'}
+          </button>
+        </div>
       </div>
 
+      {statusMessage && <div className="status-message">{statusMessage}</div>}
       {error && <div className="error-message">{error}</div>}
 
       {showAddForm && (

@@ -5,6 +5,8 @@ import ModelList from './components/ModelList'
 import Settings from './components/Settings'
 import ErrorMonitor from './components/ErrorMonitor'
 import ServiceStatusMonitor from './components/ServiceStatusMonitor'
+import LogViewer from './components/LogViewer';
+
 import './App.css'
 
 // 图标组件
@@ -81,7 +83,7 @@ const Icons = {
   ),
 }
 
-type TabType = 'accounts' | 'channels' | 'models' | 'monitor' | 'status' | 'settings'
+type TabType = 'accounts' | 'channels' | 'models' | 'monitor' | 'status' | 'logs' | 'settings'
 
 interface NavItem {
   id: TabType
@@ -98,11 +100,12 @@ const navItems: { section: string; items: NavItem[] }[] = [
       { id: 'models', label: '模型列表', icon: Icons.Model },
     ],
   },
-  {
+    {
     section: '监控',
     items: [
       { id: 'status', label: '服务状态', icon: Icons.Activity },
       { id: 'monitor', label: '错误监控', icon: Icons.Monitor },
+      { id: 'logs', label: '日志查看', icon: Icons.Monitor },
     ],
   },
   {
@@ -119,8 +122,11 @@ const pageTitles: Record<TabType, string> = {
   models: '模型列表',
   status: '服务状态监控',
   monitor: '错误统计与监控',
+  logs: '日志查看',
   settings: '系统设置',
 }
+
+
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('accounts')
@@ -143,9 +149,11 @@ function App() {
       case 'status':
         return <ServiceStatusMonitor />
       case 'monitor':
-        return <ErrorMonitor />
-      case 'settings':
-        return <Settings />
+          return <ErrorMonitor />
+      case 'logs':
+          return <LogViewer />
+      case 'settings':  
+          return <Settings />
       default:
         return <AccountManager />
     }
