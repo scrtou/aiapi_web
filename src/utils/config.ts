@@ -1,5 +1,6 @@
 // 后端配置管理
 const BACKEND_CONFIG_KEY = 'backend_config';
+const ADMIN_API_KEY_KEY = 'admin_api_key';
 
 export interface BackendConfig {
   protocol: 'http' | 'https';
@@ -46,4 +47,25 @@ export const getBackendBaseUrl = (): string => {
 // 重置为默认配置
 export const resetBackendConfig = (): void => {
   localStorage.removeItem(BACKEND_CONFIG_KEY);
+};
+
+// ============ Admin API Key 管理 ============
+
+// 获取管理 API Key
+export const getAdminApiKey = (): string => {
+  return localStorage.getItem(ADMIN_API_KEY_KEY) || '';
+};
+
+// 保存管理 API Key
+export const saveAdminApiKey = (key: string): void => {
+  if (key) {
+    localStorage.setItem(ADMIN_API_KEY_KEY, key);
+  } else {
+    localStorage.removeItem(ADMIN_API_KEY_KEY);
+  }
+};
+
+// 清除管理 API Key
+export const clearAdminApiKey = (): void => {
+  localStorage.removeItem(ADMIN_API_KEY_KEY);
 };

@@ -29,7 +29,7 @@ const ChannelManager: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get<ChannelInfo[]>('/aichat/channel/info');
+      const response = await api.get<ChannelInfo[]>('/aichat/channel/list');
       setChannels(response.data);
     } catch (err) {
       setError('加载渠道列表失败');

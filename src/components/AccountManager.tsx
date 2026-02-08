@@ -3,6 +3,62 @@ import { AccountInfo, AccountRequest, ChannelInfo } from '../types';
 import api from '../services/api';
 import './AccountManager.css';
 
+
+// 将后端账号字段标准化为统一 camelCase 结构。
+// 说明：兼容代码已移除，这里只接收新字段命名并做类型兜底。
+const toBoolean = (value: unknown, defaultValue = false): boolean => {
+  if (value === null || value === undefined) {
+    return defaultValue;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'on', 'active', 'enabled'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'n', 'off', 'inactive', 'disabled'].includes(normalized)) {
+      return false;
+    }
+  }
+  return defaultValue;
+};
+
+const toNumber = (value: unknown, defaultValue = 0): number => {
+  if (value === null || value === undefined || value === '') {
+    return defaultValue;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : defaultValue;
+};
+
+const normalizeAccountType = (value: unknown): string => {
+  if (typeof value !== 'string') {
+    return 'free';
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'pro' ? 'pro' : 'free';
+};
+
+const normalizeAccount = (raw: AccountInfo): AccountInfo => ({
+  apiName: raw.apiName ?? '',
+  userName: raw.userName ?? '',
+  password: raw.password ?? '',
+  authToken: raw.authToken ?? '',
+  userTobitId: toNumber(raw.userTobitId, 0),
+  personId: raw.personId ?? '',
+  useCount: toNumber(raw.useCount, 0),
+  tokenStatus: toBoolean(raw.tokenStatus, false),
+  accountStatus: toBoolean(raw.accountStatus, false),
+  createTime: raw.createTime ?? '',
+  accountType: normalizeAccountType(raw.accountType),
+  status: raw.status ?? 'active',
+});
+
 const AccountManager: React.FC = () => {
   const [accounts, setAccounts] = useState<AccountInfo[]>([]);
   const [channels, setChannels] = useState<ChannelInfo[]>([]);
@@ -18,16 +74,16 @@ const AccountManager: React.FC = () => {
   
   // 表单数据
   const [formData, setFormData] = useState<AccountRequest>({
-    apiname: '',
-    username: '',
+    apiName: '',
+    userName: '',
     password: '',
-    authtoken: '',
-    usertobitid: undefined,
-    personid: '',
-    usecount: 0,
-    tokenstatus: true,
-    accountstatus: true,
-    accounttype: 'free',
+    authToken: '',
+    userTobitId: undefined,
+    personId: '',
+    useCount: 0,
+    tokenStatus: true,
+    accountStatus: true,
+    accountType: 'free',
   });
 
   // 加载账号列表
@@ -37,7 +93,7 @@ const AccountManager: React.FC = () => {
     try {
       const response = await api.get('/aichat/account/info');
       const data = response.data;
-      setAccounts(Array.isArray(data) ? data : []);
+      setAccounts(Array.isArray(data) ? data.map(normalizeAccount) : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载账号列表失败');
     } finally {
@@ -50,7 +106,7 @@ const AccountManager: React.FC = () => {
     loadAccounts();
     const loadChannels = async () => {
       try {
-        const response = await api.get('/aichat/channel/info');
+        const response = await api.get('/aichat/channel/list');
         const channelData = response.data;
         setChannels(Array.isArray(channelData) ? channelData : []);
       } catch (err) {
@@ -69,18 +125,18 @@ const AccountManager: React.FC = () => {
     try {
       // 清理空值
       const cleanedData: AccountRequest = {
-        apiname: formData.apiname,
-        username: formData.username,
+        apiName: formData.apiName,
+        userName: formData.userName,
         password: formData.password,
       };
 
-      if (formData.authtoken) cleanedData.authtoken = formData.authtoken;
-      if (formData.usertobitid) cleanedData.usertobitid = formData.usertobitid;
-      if (formData.personid) cleanedData.personid = formData.personid;
-      if (formData.usecount !== undefined) cleanedData.usecount = formData.usecount;
-      if (formData.tokenstatus !== undefined) cleanedData.tokenstatus = formData.tokenstatus;
-      if (formData.accountstatus !== undefined) cleanedData.accountstatus = formData.accountstatus;
-      if (formData.accounttype) cleanedData.accounttype = formData.accounttype;
+      if (formData.authToken) cleanedData.authToken = formData.authToken;
+      if (formData.userTobitId) cleanedData.userTobitId = formData.userTobitId;
+      if (formData.personId) cleanedData.personId = formData.personId;
+      if (formData.useCount !== undefined) cleanedData.useCount = formData.useCount;
+      if (formData.tokenStatus !== undefined) cleanedData.tokenStatus = formData.tokenStatus;
+      if (formData.accountStatus !== undefined) cleanedData.accountStatus = formData.accountStatus;
+      if (formData.accountType) cleanedData.accountType = formData.accountType;
 
       const endpoint = isEditing ? '/aichat/account/update' : '/aichat/account/add';
       const response = await api.post(endpoint, [cleanedData]);
@@ -89,16 +145,16 @@ const AccountManager: React.FC = () => {
       if (results[0].status === 'success') {
         // 重置表单
         setFormData({
-          apiname: '',
-          username: '',
+          apiName: '',
+          userName: '',
           password: '',
-          authtoken: '',
-          usertobitid: undefined,
-          personid: '',
-          usecount: 0,
-          tokenstatus: true,
-          accountstatus: true,
-          accounttype: 'free',
+          authToken: '',
+          userTobitId: undefined,
+          personId: '',
+          useCount: 0,
+          tokenStatus: true,
+          accountStatus: true,
+          accountType: 'free',
         });
         setShowAddForm(false);
         setIsEditing(false);
@@ -117,24 +173,24 @@ const AccountManager: React.FC = () => {
   // 编辑账号
   const handleEdit = (account: AccountInfo) => {
     setFormData({
-      apiname: account.apiname,
-      username: account.username,
+      apiName: account.apiName,
+      userName: account.userName,
       password: account.password,
-      authtoken: account.authtoken || '',
-      usertobitid: account.usertobitid,
-      personid: account.personid || '',
-      usecount: account.usecount || 0,
-      tokenstatus: account.tokenstatus ?? true,
-      accountstatus: account.accountstatus ?? true,
-      accounttype: account.accounttype || 'free',
+      authToken: account.authToken || '',
+      userTobitId: account.userTobitId,
+      personId: account.personId || '',
+      useCount: account.useCount || 0,
+      tokenStatus: account.tokenStatus ?? true,
+      accountStatus: account.accountStatus ?? true,
+      accountType: account.accountType || 'free',
     });
     setIsEditing(true);
     setShowAddForm(true);
   };
 
   // 删除账号
-  const handleDelete = async (apiname: string, username: string) => {
-    if (!confirm(`确定要删除账号 ${username} (${apiname}) 吗？`)) {
+  const handleDelete = async (apiName: string, userName: string) => {
+    if (!confirm(`确定要删除账号 ${userName} (${apiName}) 吗？`)) {
       return;
     }
 
@@ -142,7 +198,7 @@ const AccountManager: React.FC = () => {
     setError(null);
 
     try {
-      const response = await api.post('/aichat/account/delete', [{ apiname, username }]);
+      const response = await api.post('/aichat/account/delete', [{ apiName, userName }]);
       const results = response.data;
       
       if (results[0].status === 'success') {
@@ -190,7 +246,7 @@ const AccountManager: React.FC = () => {
     setStatusMessage(null);
     try {
       const response = await api.post('/aichat/account/autoregister', {
-        apiname: 'chaynsapi',
+        apiName: 'chaynsapi',
         count: registerCount,
       });
       const data = response.data;
@@ -265,16 +321,16 @@ const AccountManager: React.FC = () => {
                 setShowAddForm(false);
                 setIsEditing(false);
                 setFormData({
-                  apiname: '',
-                  username: '',
+                  apiName: '',
+                  userName: '',
                   password: '',
-                  authtoken: '',
-                  usertobitid: undefined,
-                  personid: '',
-                  usecount: 0,
-                  tokenstatus: true,
-                  accountstatus: true,
-                  accounttype: 'free',
+                  authToken: '',
+                  userTobitId: undefined,
+                  personId: '',
+                  useCount: 0,
+                  tokenStatus: true,
+                  accountStatus: true,
+                  accountType: 'free',
                 });
               } else {
                 setShowAddForm(true);
@@ -296,10 +352,10 @@ const AccountManager: React.FC = () => {
           
           <div className="form-row">
             <div className="form-group">
-              <label>API 名称 *</label>
+              <label>apiName *</label>
               <select
-                value={formData.apiname}
-                onChange={(e) => setFormData({ ...formData, apiname: e.target.value })}
+                value={formData.apiName}
+                onChange={(e) => setFormData({ ...formData, apiName: e.target.value })}
                 required
                 disabled={isEditing}
               >
@@ -313,13 +369,13 @@ const AccountManager: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label>用户名 *</label>
+              <label>userName *</label>
               <input
                 type="text"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                value={formData.userName}
+                onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
                 required
-                placeholder="账号用户名"
+                placeholder="userName"
                 disabled={isEditing}
               />
             </div>
@@ -327,65 +383,65 @@ const AccountManager: React.FC = () => {
 
           <div className="form-row">
             <div className="form-group">
-              <label>密码 *</label>
+              <label>password *</label>
               <input
-                type="password"
+                type={isEditing ? 'text' : 'password'}
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
-                placeholder="账号密码"
+                placeholder="password"
               />
             </div>
 
             <div className="form-group">
-              <label>Auth Token</label>
+              <label>authToken</label>
               <input
                 type="text"
-                value={formData.authtoken}
-                onChange={(e) => setFormData({ ...formData, authtoken: e.target.value })}
-                placeholder="认证令牌（可选）"
+                value={formData.authToken}
+                onChange={(e) => setFormData({ ...formData, authToken: e.target.value })}
+                placeholder="authToken (optional)"
               />
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
-              <label>User Tobit ID</label>
+              <label>userTobitId</label>
               <input
                 type="number"
-                value={formData.usertobitid || ''}
-                onChange={(e) => setFormData({ ...formData, usertobitid: e.target.value ? parseInt(e.target.value) : undefined })}
-                placeholder="Tobit用户ID（可选）"
+                value={formData.userTobitId || ''}
+                onChange={(e) => setFormData({ ...formData, userTobitId: e.target.value ? parseInt(e.target.value) : undefined })}
+                placeholder="userTobitId (optional)"
               />
             </div>
 
             <div className="form-group">
-              <label>Person ID</label>
+              <label>personId</label>
               <input
                 type="text"
-                value={formData.personid}
-                onChange={(e) => setFormData({ ...formData, personid: e.target.value })}
-                placeholder="人员ID（可选）"
+                value={formData.personId}
+                onChange={(e) => setFormData({ ...formData, personId: e.target.value })}
+                placeholder="personId (optional)"
               />
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
-              <label>使用次数</label>
+              <label>useCount</label>
               <input
                 type="number"
-                value={formData.usecount}
-                onChange={(e) => setFormData({ ...formData, usecount: parseInt(e.target.value) || 0 })}
+                value={formData.useCount}
+                onChange={(e) => setFormData({ ...formData, useCount: parseInt(e.target.value) || 0 })}
                 placeholder="0"
               />
             </div>
 
             <div className="form-group">
-              <label>账号类型</label>
+              <label>accountType</label>
               <select
-                value={formData.accounttype}
-                onChange={(e) => setFormData({ ...formData, accounttype: e.target.value })}
+                value={formData.accountType}
+                onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
               >
                 <option value="free">Free</option>
                 <option value="pro">Pro</option>
@@ -396,19 +452,19 @@ const AccountManager: React.FC = () => {
               <label>
                 <input
                   type="checkbox"
-                  checked={formData.tokenstatus}
-                  onChange={(e) => setFormData({ ...formData, tokenstatus: e.target.checked })}
+                  checked={formData.tokenStatus}
+                  onChange={(e) => setFormData({ ...formData, tokenStatus: e.target.checked })}
                 />
-                Token 状态
+                tokenStatus
               </label>
               
               <label>
                 <input
                   type="checkbox"
-                  checked={formData.accountstatus}
-                  onChange={(e) => setFormData({ ...formData, accountstatus: e.target.checked })}
+                  checked={formData.accountStatus}
+                  onChange={(e) => setFormData({ ...formData, accountStatus: e.target.checked })}
                 />
-                账号状态
+                accountStatus
               </label>
             </div>
           </div>
@@ -424,16 +480,16 @@ const AccountManager: React.FC = () => {
                 setShowAddForm(false);
                 setIsEditing(false);
                 setFormData({
-                  apiname: '',
-                  username: '',
+                  apiName: '',
+                  userName: '',
                   password: '',
-                  authtoken: '',
-                  usertobitid: undefined,
-                  personid: '',
-                  usecount: 0,
-                  tokenstatus: true,
-                  accountstatus: true,
-                  accounttype: 'free',
+                  authToken: '',
+                  userTobitId: undefined,
+                  personId: '',
+                  useCount: 0,
+                  tokenStatus: true,
+                  accountStatus: true,
+                  accountType: 'free',
                 });
               }}
               disabled={loading}
@@ -456,59 +512,59 @@ const AccountManager: React.FC = () => {
             <table className="accounts-table">
               <thead>
                 <tr>
-                  <th>API 名称</th>
-                  <th>用户名</th>
-                  <th>密码</th>
-                  <th>Auth Token</th>
-                  <th>User Tobit ID</th>
-                  <th>Person ID</th>
-                  <th>使用次数</th>
-                  <th>Token 状态</th>
-                  <th>账号状态</th>
-                  <th>账号类型</th>
-                  <th>创建时间</th>
-                  <th>操作</th>
+                  <th>apiName</th>
+                  <th>userName</th>
+                  <th>password</th>
+                  <th>authToken</th>
+                  <th>userTobitId</th>
+                  <th>personId</th>
+                  <th>useCount</th>
+                  <th>tokenStatus</th>
+                  <th>accountStatus</th>
+                  <th>accountType</th>
+                  <th>createTime</th>
+                  <th>actions</th>
                 </tr>
               </thead>
               <tbody>
                 {accounts.map((account, index) => (
-                  <tr key={`${account.apiname}-${account.username}-${index}`}>
-                    <td>{account.apiname}</td>
-                    <td>{account.username}</td>
+                  <tr key={`${account.apiName}-${account.userName}-${index}`}>
+                    <td>{account.apiName}</td>
+                    <td>{account.userName}</td>
                     <td>
                       <span className="password-mask">{'*'.repeat(8)}</span>
                     </td>
                     <td>
-                      {account.authtoken ? (
-                        <span className="token-preview" title={account.authtoken}>
-                          {account.authtoken.substring(0, 10)}...
+                      {account.authToken ? (
+                        <span className="token-preview" title={account.authToken}>
+                          {account.authToken.substring(0, 10)}...
                         </span>
                       ) : (
                         <span className="empty">-</span>
                       )}
                     </td>
-                    <td>{account.usertobitid || '-'}</td>
-                    <td>{account.personid || '-'}</td>
-                    <td>{account.usecount || 0}</td>
+                    <td>{account.userTobitId || '-'}</td>
+                    <td>{account.personId || '-'}</td>
+                    <td>{account.useCount || 0}</td>
                     <td>
-                      <span className={`status-badge ${account.tokenstatus ? 'active' : 'inactive'}`}>
-                        {account.tokenstatus ? '✓ 有效' : '✗ 无效'}
+                      <span className={`status-badge ${account.tokenStatus ? 'active' : 'inactive'}`}>
+                        {account.tokenStatus ? '✓ 有效' : '✗ 无效'}
                       </span>
                     </td>
                     <td>
-                      <span className={`status-badge ${account.accountstatus ? 'active' : 'inactive'}`}>
-                        {account.accountstatus ? '✓ 启用' : '✗ 禁用'}
+                      <span className={`status-badge ${account.accountStatus ? 'active' : 'inactive'}`}>
+                        {account.accountStatus ? '✓ 启用' : '✗ 禁用'}
                       </span>
                     </td>
                     <td>
-                      <span className={`status-badge ${account.accounttype === 'pro' ? 'active' : 'inactive'}`}>
-                        {account.accounttype === 'pro' ? 'Pro' : 'Free'}
+                      <span className={`status-badge ${account.accountType === 'pro' ? 'active' : 'inactive'}`}>
+                        {account.accountType === 'pro' ? 'Pro' : 'Free'}
                       </span>
                     </td>
                     <td>
-                      {account.createtime ? (
+                      {account.createTime ? (
                         <span className="createtime">
-                          {new Date(account.createtime).toLocaleString('zh-CN')}
+                          {new Date(account.createTime).toLocaleString('zh-CN')}
                         </span>
                       ) : (
                         <span className="empty">-</span>
@@ -525,7 +581,7 @@ const AccountManager: React.FC = () => {
                       </button>
                       <button
                         className="btn-danger btn-small"
-                        onClick={() => handleDelete(account.apiname, account.username)}
+                        onClick={() => handleDelete(account.apiName, account.userName)}
                         disabled={loading}
                       >
                         删除

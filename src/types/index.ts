@@ -1,36 +1,37 @@
-// 账号信息接口 - 对应后端的 Accountinfo_st
+// 账号信息接口 - 与后端账号 API 使用统一 camelCase 命名
 export interface AccountInfo {
-  apiname: string;
-  username: string;
+  apiName: string;
+  userName: string;
   password: string;
-  authtoken?: string;
-  usertobitid?: number;
-  personid?: string;
-  usecount?: number;
-  tokenstatus?: boolean;
-  accountstatus?: boolean;
-  createtime?: string;
-  accounttype?: string;
+  authToken?: string;
+  userTobitId?: number;
+  personId?: string;
+  useCount?: number;
+  tokenStatus?: boolean;
+  accountStatus?: boolean;
+  createTime?: string;
+  accountType?: string;
+  status?: string;
 }
 
 // 账号添加/删除请求
 export interface AccountRequest {
-  apiname: string;
-  username: string;
+  apiName: string;
+  userName: string;
   password?: string;
-  authtoken?: string;
-  usertobitid?: number;
-  personid?: string;
-  usecount?: number;
-  tokenstatus?: boolean;
-  accountstatus?: boolean;
-  accounttype?: string;
+  authToken?: string;
+  userTobitId?: number;
+  personId?: string;
+  useCount?: number;
+  tokenStatus?: boolean;
+  accountStatus?: boolean;
+  accountType?: string;
 }
 
 // 账号操作响应
 export interface AccountOperationResponse {
-  apiname: string;
-  username: string;
+  apiName: string;
+  userName: string;
   status: 'success' | 'failed';
 }
 
@@ -111,12 +112,12 @@ export interface BackendTimeSeriesBucket {
 
 // 请求统计时间序列响应
 export interface RequestsSeriesResponse {
-  // 新接口（后端实际返回）
+  // 主接口字段
   from: string;
   to: string;
   data: BackendTimeSeriesBucket[];
 
-  // 兼容旧字段（前端旧实现曾使用）
+  // 可选扩展字段
   series?: TimeSeriesPoint[];
   total?: number;
   interval?: string;
@@ -126,12 +127,12 @@ export interface RequestsSeriesResponse {
 
 // 错误统计时间序列响应
 export interface ErrorsSeriesResponse {
-  // 新接口（后端实际返回）
+  // 主接口字段
   from: string;
   to: string;
   data: BackendTimeSeriesBucket[];
 
-  // 兼容旧字段（前端旧实现曾使用）
+  // 可选扩展字段
   series?: TimeSeriesPoint[];
   total?: number;
   interval?: string;
@@ -175,7 +176,7 @@ export interface ErrorEvent {
 
 // 错误事件列表响应
 export interface ErrorEventsResponse {
-  // 新接口（后端实际返回）
+  // 主接口字段
   from: string;
   to: string;
   limit: number;
@@ -183,7 +184,7 @@ export interface ErrorEventsResponse {
   data: BackendErrorEvent[];
   count: number; // 当前返回条数
 
-  // 兼容旧字段（前端旧实现曾使用）
+  // 可选扩展字段
   events?: ErrorEvent[];
   total?: number;
   page?: number;
@@ -193,11 +194,11 @@ export interface ErrorEventsResponse {
 
 // 错误事件详情响应
 export interface ErrorEventDetailResponse extends ErrorEvent {
-  // 新接口（后端实际返回）
+  // 主接口字段
   detail_json?: string;
   raw_snippet?: string;
 
-  // 兼容旧字段（前端旧实现曾使用）
+  // 可选扩展字段
   stack_trace?: string;
   request_body?: string;
   response_body?: string;
@@ -205,7 +206,7 @@ export interface ErrorEventDetailResponse extends ErrorEvent {
 
 // 查询参数
 export interface MetricsQueryParams {
-  // 新接口参数（后端实际使用）
+  // 主查询参数
   from?: string;
   to?: string;
   limit?: number;
@@ -217,7 +218,7 @@ export interface MetricsQueryParams {
   model?: string;
   client_type?: string;
 
-  // 兼容旧参数（前端旧实现曾使用）
+  // 可选查询参数
   start_time?: string;
   end_time?: string;
   interval?: '1m' | '5m' | '15m' | '1h' | '6h' | '1d';

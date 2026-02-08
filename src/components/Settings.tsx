@@ -1,9 +1,18 @@
 import { useState } from 'react';
-import { getBackendConfig, saveBackendConfig, resetBackendConfig, BackendConfig } from '../utils/config';
+import {
+  getBackendConfig,
+  saveBackendConfig,
+  resetBackendConfig,
+  getAdminApiKey,
+  saveAdminApiKey,
+  clearAdminApiKey,
+  BackendConfig,
+} from '../utils/config';
 import './Settings.css';
 
 const Settings: React.FC = () => {
   const [config, setConfig] = useState<BackendConfig>(() => getBackendConfig());
+  const [adminApiKey, setAdminApiKey] = useState<string>(() => getAdminApiKey());
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -29,6 +38,7 @@ const Settings: React.FC = () => {
 
     try {
       saveBackendConfig(config);
+      saveAdminApiKey(adminApiKey.trim());
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
@@ -40,7 +50,9 @@ const Settings: React.FC = () => {
   const handleReset = () => {
     if (confirm('确定要重置为默认配置吗？')) {
       resetBackendConfig();
+      clearAdminApiKey();
       setConfig(getBackendConfig());
+      setAdminApiKey('');
       setSaved(false);
       setError(null);
     }
@@ -134,6 +146,26 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
+        <div className="settings-section">
+          <h3>管理接口认证</h3>
+          <p className="settings-description">
+            配置 Admin API Key 后，前端访问 `/aichat/*` 管理接口时会自动附带
+            `Authorization: Bearer &lt;key&gt;` 请求头。
+          </p>
+
+          <div className="form-group">
+            <label>Admin API Key</label>
+            <input
+              type="password"
+              value={adminApiKey}
+              onChange={(e) => setAdminApiKey(e.target.value)}
+              placeholder="留空表示不设置认证"
+              autoComplete="off"
+            />
+            <small>留空后保存，将清除本地存储的 API Key</small>
+          </div>
+        </div>
+
         <div className="form-actions">
           <button type="submit" className="btn-primary">
             保存配置
@@ -154,6 +186,7 @@ const Settings: React.FC = () => {
           <li>默认配置：127.0.0.1:5555</li>
           <li>配置保存在浏览器的 localStorage 中</li>
           <li>使用"测试连接"按钮可以验证服务器是否可访问</li>
+          <li>管理接口认证失败（401）时，请检查 Admin API Key 是否正确</li>
           <li><strong>重要：</strong>如果网站使用 HTTPS 访问，必须将协议设置为 HTTPS，否则浏览器会因为"混合内容"安全策略而阻止 API 请求</li>
         </ul>
       </div>
