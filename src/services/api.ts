@@ -5,6 +5,7 @@ import type {
   ChannelStatusResponse,
   ModelStatusResponse,
   StatusQueryParams,
+  AccountAutomationSettings,
 } from '../types';
 
 const api = axios.create({
@@ -56,6 +57,28 @@ export const getStatusChannels = async (params?: StatusQueryParams): Promise<Cha
 export const getStatusModels = async (params?: StatusQueryParams): Promise<ModelStatusResponse> => {
   const response = await api.get<ModelStatusResponse>('/aichat/metrics/status/models', { params });
   return response.data;
+};
+
+/**
+ * 获取账号自动化设置
+ */
+export const getAccountAutomationSettings = async (): Promise<AccountAutomationSettings> => {
+  const response = await api.get<AccountAutomationSettings>('/aichat/account/settings');
+  return response.data;
+};
+
+/**
+ * 保存账号自动化设置
+ */
+export const saveAccountAutomationSettings = async (
+  settings: AccountAutomationSettings,
+): Promise<AccountAutomationSettings> => {
+  const response = await api.post<{
+    status: 'success' | 'failed';
+    message?: string;
+    settings: AccountAutomationSettings;
+  }>('/aichat/account/settings', settings);
+  return response.data.settings;
 };
 
 export default api;

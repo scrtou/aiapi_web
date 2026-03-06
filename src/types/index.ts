@@ -35,6 +35,13 @@ export interface AccountOperationResponse {
   status: 'success' | 'failed';
 }
 
+// 账号自动化设置
+export interface AccountAutomationSettings {
+  autoDeleteEnabled: boolean;
+  deleteAfterDays: number;
+  autoRegisterEnabled: boolean;
+}
+
 // 模型信息接口
 export interface Model {
   id: string;

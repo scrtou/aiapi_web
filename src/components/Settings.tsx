@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   getBackendConfig,
   saveBackendConfig,
@@ -6,88 +6,162 @@ import {
   getAdminApiKey,
   saveAdminApiKey,
   clearAdminApiKey,
-  BackendConfig,
 } from '../utils/config';
+import type { BackendConfig } from '../utils/config';
+import {
+  getAccountAutomationSettings,
+  saveAccountAutomationSettings,
+} from '../services/api';
+import type { AccountAutomationSettings } from '../types';
 import './Settings.css';
+
+const defaultAccountAutomationSettings: AccountAutomationSettings = {
+  autoDeleteEnabled: true,
+  deleteAfterDays: 6,
+  autoRegisterEnabled: true,
+};
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = error as {
+      response?: {
+        data?: {
+          error?: {
+            message?: string;
+          };
+        };
+      };
+    };
+    const message = response.response?.data?.error?.message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return error instanceof Error ? error.message : fallback;
+};
 
 const Settings: React.FC = () => {
   const [config, setConfig] = useState<BackendConfig>(() => getBackendConfig());
   const [adminApiKey, setAdminApiKey] = useState<string>(() => getAdminApiKey());
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  // 检测当前页面是否使用 HTTPS
+  const [clientSaved, setClientSaved] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
+
+  const [accountAutomation, setAccountAutomation] = useState<AccountAutomationSettings>(
+    defaultAccountAutomationSettings,
+  );
+  const [automationLoading, setAutomationLoading] = useState(true);
+  const [automationSaving, setAutomationSaving] = useState(false);
+  const [automationSaved, setAutomationSaved] = useState(false);
+  const [automationError, setAutomationError] = useState<string | null>(null);
+
   const isPageHttps = window.location.protocol === 'https:';
 
-  // 处理表单提交
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSaved(false);
+  const loadAutomationSettings = useCallback(async () => {
+    setAutomationLoading(true);
+    setAutomationError(null);
 
-    // 验证
+    try {
+      const settings = await getAccountAutomationSettings();
+      setAccountAutomation(settings);
+    } catch (error) {
+      setAutomationError(getErrorMessage(error, '加载账号策略设置失败'));
+    } finally {
+      setAutomationLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAutomationSettings();
+  }, [loadAutomationSettings]);
+
+  const handleClientSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setClientError(null);
+    setClientSaved(false);
+
     if (!config.host) {
-      setError('请输入主机地址');
+      setClientError('请输入主机地址');
       return;
     }
 
     if (!config.port || config.port < 1 || config.port > 65535) {
-      setError('请输入有效的端口号（1-65535）');
+      setClientError('请输入有效的端口号（1-65535）');
       return;
     }
 
     try {
       saveBackendConfig(config);
       saveAdminApiKey(adminApiKey.trim());
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      setError('保存配置失败');
+      setClientSaved(true);
+      window.setTimeout(() => setClientSaved(false), 3000);
+    } catch {
+      setClientError('保存配置失败');
     }
   };
 
-  // 重置为默认配置
   const handleReset = () => {
     if (confirm('确定要重置为默认配置吗？')) {
       resetBackendConfig();
       clearAdminApiKey();
       setConfig(getBackendConfig());
       setAdminApiKey('');
-      setSaved(false);
-      setError(null);
+      setClientSaved(false);
+      setClientError(null);
     }
   };
 
-  // 测试连接
   const handleTest = async () => {
-    setError(null);
+    setClientError(null);
     try {
       const testUrl = `${config.protocol}://${config.host}:${config.port}/chaynsapi/v1/models`;
       const response = await fetch(testUrl, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000) // 5秒超时
+        signal: AbortSignal.timeout(5000),
       });
-      
+
       if (response.ok) {
         alert('连接测试成功！');
       } else {
-        setError(`连接失败：HTTP ${response.status}`);
+        setClientError(`连接失败：HTTP ${response.status}`);
       }
-    } catch (err) {
-      setError(`连接测试失败：${err instanceof Error ? err.message : '未知错误'}`);
+    } catch (error) {
+      setClientError(`连接测试失败：${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  };
+
+  const handleAutomationSave = async () => {
+    setAutomationError(null);
+    setAutomationSaved(false);
+
+    if (!Number.isInteger(accountAutomation.deleteAfterDays) || accountAutomation.deleteAfterDays < 1) {
+      setAutomationError('自动删除天数必须是大于 0 的整数');
+      return;
+    }
+
+    setAutomationSaving(true);
+    try {
+      const savedSettings = await saveAccountAutomationSettings(accountAutomation);
+      setAccountAutomation(savedSettings);
+      setAutomationSaved(true);
+      window.setTimeout(() => setAutomationSaved(false), 3000);
+    } catch (error) {
+      setAutomationError(getErrorMessage(error, '保存账号策略设置失败'));
+    } finally {
+      setAutomationSaving(false);
     }
   };
 
   return (
     <div className="settings">
       <div className="header">
-        <h2>后端配置</h2>
+        <h2>系统设置</h2>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
-      {saved && <div className="success-message">配置已保存！</div>}
+      {clientError && <div className="error-message">{clientError}</div>}
+      {clientSaved && <div className="success-message">本地连接配置已保存！</div>}
 
-      <form onSubmit={handleSubmit} className="settings-form">
+      <form onSubmit={handleClientSubmit} className="settings-form">
         <div className="settings-section">
           <h3>后端服务器地址</h3>
           <p className="settings-description">
@@ -103,11 +177,15 @@ const Settings: React.FC = () => {
               onChange={(e) => setConfig({ ...config, protocol: e.target.value as 'http' | 'https' })}
               disabled={isPageHttps}
             >
-              <option value="http" disabled={isPageHttps}>HTTP {isPageHttps ? '(HTTPS页面不可用)' : ''}</option>
+              <option value="http" disabled={isPageHttps}>
+                HTTP {isPageHttps ? '(HTTPS页面不可用)' : ''}
+              </option>
               <option value="https">HTTPS</option>
             </select>
             {isPageHttps ? (
-              <small className="warning-text">⚠️ 当前页面使用 HTTPS，后端必须使用 HTTPS，否则请求会被浏览器阻止</small>
+              <small className="warning-text">
+                ⚠️ 当前页面使用 HTTPS，后端必须使用 HTTPS，否则请求会被浏览器阻止
+              </small>
             ) : (
               <small>HTTPS 网站必须使用 HTTPS 后端</small>
             )}
@@ -129,7 +207,7 @@ const Settings: React.FC = () => {
             <input
               type="number"
               value={config.port}
-              onChange={(e) => setConfig({ ...config, port: parseInt(e.target.value) || 8080 })}
+              onChange={(e) => setConfig({ ...config, port: parseInt(e.target.value, 10) || 8080 })}
               min="1"
               max="65535"
               placeholder="8080"
@@ -141,7 +219,9 @@ const Settings: React.FC = () => {
             <h4>当前配置</h4>
             <div className="config-display">
               <span className="config-label">完整地址：</span>
-              <code>{config.protocol}://{config.host}:{config.port}</code>
+              <code>
+                {config.protocol}://{config.host}:{config.port}
+              </code>
             </div>
           </div>
         </div>
@@ -168,7 +248,7 @@ const Settings: React.FC = () => {
 
         <div className="form-actions">
           <button type="submit" className="btn-primary">
-            保存配置
+            保存本地配置
           </button>
           <button type="button" className="btn-secondary" onClick={handleTest}>
             测试连接
@@ -179,15 +259,106 @@ const Settings: React.FC = () => {
         </div>
       </form>
 
+      <div className="settings-form">
+        <div className="settings-section">
+          <div className="section-header">
+            <div>
+              <h3>账号自动化策略</h3>
+              <p className="settings-description">
+                这里控制后端的过期账号自动删除和渠道缺号时的自动补注册；保存后立即生效，并持久化到数据库配置表 `app_config`。
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => void loadAutomationSettings()}
+              disabled={automationLoading || automationSaving}
+            >
+              {automationLoading ? '加载中...' : '重新加载'}
+            </button>
+          </div>
+
+          {automationError && <div className="error-message inline-message">{automationError}</div>}
+          {automationSaved && <div className="success-message inline-message">账号策略已保存！</div>}
+
+          {automationLoading ? (
+            <div className="loading-placeholder">正在加载后端账号策略...</div>
+          ) : (
+            <>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={accountAutomation.autoDeleteEnabled}
+                  onChange={(e) =>
+                    setAccountAutomation({
+                      ...accountAutomation,
+                      autoDeleteEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <span>启用自动删除过期账号</span>
+              </label>
+
+              <div className="form-group compact-group">
+                <label>自动删除天数</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={accountAutomation.deleteAfterDays}
+                  onChange={(e) =>
+                    setAccountAutomation({
+                      ...accountAutomation,
+                      deleteAfterDays: Math.max(1, parseInt(e.target.value, 10) || 1),
+                    })
+                  }
+                />
+                <small>达到该天数后，free 账号会在后台巡检时被自动删除。当前默认值为 6 天。</small>
+              </div>
+
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={accountAutomation.autoRegisterEnabled}
+                  onChange={(e) =>
+                    setAccountAutomation({
+                      ...accountAutomation,
+                      autoRegisterEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <span>启用自动补注册账号</span>
+              </label>
+              <small className="standalone-help">
+                关闭后，后端不会因为渠道账号数量不足而自动补号；账号管理页里的手动“自动注册”按钮仍可单独使用。
+              </small>
+
+              <div className="form-actions top-borderless">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => void handleAutomationSave()}
+                  disabled={automationSaving}
+                >
+                  {automationSaving ? '保存中...' : '保存后端策略'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       <div className="settings-info">
         <h3>使用说明</h3>
         <ul>
-          <li>修改配置后，需要刷新页面才能使新配置生效</li>
-          <li>默认配置：127.0.0.1:5555</li>
-          <li>配置保存在浏览器的 localStorage 中</li>
-          <li>使用"测试连接"按钮可以验证服务器是否可访问</li>
+          <li>修改本地连接配置后，需要刷新页面才能让新的后端地址生效</li>
+          <li>默认连接配置：127.0.0.1:5555</li>
+          <li>本地连接配置和 Admin API Key 保存在浏览器的 localStorage 中</li>
+          <li>账号自动化策略优先从数据库配置表 `app_config` 读取；若表中缺失配置项，则会使用 `config.json` 默认值补齐</li>
           <li>管理接口认证失败（401）时，请检查 Admin API Key 是否正确</li>
-          <li><strong>重要：</strong>如果网站使用 HTTPS 访问，必须将协议设置为 HTTPS，否则浏览器会因为"混合内容"安全策略而阻止 API 请求</li>
+          <li>
+            <strong>重要：</strong>如果网站使用 HTTPS 访问，必须将协议设置为 HTTPS，否则浏览器会因为“混合内容”安全策略阻止 API 请求
+          </li>
         </ul>
       </div>
     </div>
