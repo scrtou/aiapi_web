@@ -24,6 +24,10 @@ const ChannelManager: React.FC = () => {
     supports_tool_calls: false
   });
 
+  const isBuiltInChannel = (channelname: string) =>
+    channelname === 'chaynsapi' || channelname === 'nexosapi';
+  const isEditingBuiltInChannel = isEditing && isBuiltInChannel(newChannel.channelname || '');
+
   // 加载渠道列表
   const loadChannels = async () => {
     try {
@@ -45,6 +49,10 @@ const ChannelManager: React.FC = () => {
 
   // 处理复选框选择
   const handleCheckboxChange = (id: number) => {
+    const channel = channels.find((item) => item.id === id);
+    if (channel && isBuiltInChannel(channel.channelname)) {
+      return;
+    }
     setSelectedChannels(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
@@ -58,10 +66,20 @@ const ChannelManager: React.FC = () => {
 
   // 全选/取消全选
   const handleSelectAll = () => {
-    if (selectedChannels.size === channels.length) {
+    const selectableIds = channels
+      .filter((channel) => !isBuiltInChannel(channel.channelname))
+      .map((channel) => channel.id);
+
+    if (selectableIds.length === 0) {
+      setSelectedChannels(new Set());
+      return;
+    }
+
+    const allSelected = selectableIds.every((id) => selectedChannels.has(id));
+    if (allSelected) {
       setSelectedChannels(new Set());
     } else {
-      setSelectedChannels(new Set(channels.map(c => c.id)));
+      setSelectedChannels(new Set(selectableIds));
     }
   };
 
@@ -260,7 +278,12 @@ const ChannelManager: React.FC = () => {
               <th>
                 <input
                   type="checkbox"
-                  checked={channels.length > 0 && selectedChannels.size === channels.length}
+                  checked={
+                    channels.filter((channel) => !isBuiltInChannel(channel.channelname)).length > 0 &&
+                    channels
+                      .filter((channel) => !isBuiltInChannel(channel.channelname))
+                      .every((channel) => selectedChannels.has(channel.id))
+                  }
                   onChange={handleSelectAll}
                 />
               </th>
@@ -295,10 +318,17 @@ const ChannelManager: React.FC = () => {
                       type="checkbox"
                       checked={selectedChannels.has(channel.id)}
                       onChange={() => handleCheckboxChange(channel.id)}
+                      disabled={isBuiltInChannel(channel.channelname)}
+                      title={isBuiltInChannel(channel.channelname) ? '内置渠道不可删除' : undefined}
                     />
                   </td>
                   <td>{channel.id}</td>
-                  <td className="channel-name">{channel.channelname}</td>
+                  <td className="channel-name">
+                    {channel.channelname}
+                    {isBuiltInChannel(channel.channelname) && (
+                      <span className="builtin-badge">内置</span>
+                    )}
+                  </td>
                   <td>{channel.channeltype}</td>
                   <td className="channel-url">{channel.channelurl || '-'}</td>
                   <td>
@@ -328,17 +358,23 @@ const ChannelManager: React.FC = () => {
                       onClick={() => handleEdit(channel)}
                       disabled={loading}
                       style={{ marginRight: '5px' }}
+                      title={isBuiltInChannel(channel.channelname) ? '内置渠道仅允许编辑部分字段' : undefined}
                     >
                       编辑
                     </button>
                     <button
                       className="btn-sm btn-danger"
+                      disabled={isBuiltInChannel(channel.channelname)}
                       onClick={async () => {
+                        if (isBuiltInChannel(channel.channelname)) {
+                          return;
+                        }
                         if (confirm(`确定要删除渠道 "${channel.channelname}" 吗？`)) {
                           await api.post('/aichat/channel/delete', [{ id: channel.id }]);
                           await loadChannels();
                         }
                       }}
+                      title={isBuiltInChannel(channel.channelname) ? '内置渠道不可删除' : undefined}
                     >
                       删除
                     </button>
@@ -361,6 +397,11 @@ const ChannelManager: React.FC = () => {
               </button>
             </div>
             <div className="dialog-content">
+              {isEditingBuiltInChannel && (
+                <div className="info-message" style={{ marginBottom: '1rem' }}>
+                  内置渠道仅允许编辑：启用状态、支持工具调用、最大并发数、超时时间、优先级、目标账号数量、描述。
+                </div>
+              )}
               <div className="form-group">
                 <label>渠道名称 *</label>
                 <input
@@ -368,6 +409,9 @@ const ChannelManager: React.FC = () => {
                   value={newChannel.channelname}
                   onChange={(e) => setNewChannel({ ...newChannel, channelname: e.target.value })}
                   placeholder="例如: openai-channel-1"
+                  disabled={isEditingBuiltInChannel}
+                  readOnly={isEditingBuiltInChannel}
+                  style={isEditingBuiltInChannel ? { backgroundColor: '#f5f5f5', color: '#666', cursor: 'not-allowed' } : undefined}
                 />
               </div>
               <div className="form-group">
@@ -375,6 +419,8 @@ const ChannelManager: React.FC = () => {
                 <select
                   value={newChannel.channeltype}
                   onChange={(e) => setNewChannel({ ...newChannel, channeltype: e.target.value })}
+                  disabled={isEditingBuiltInChannel}
+                  style={isEditingBuiltInChannel ? { backgroundColor: '#f5f5f5', color: '#666', cursor: 'not-allowed' } : undefined}
                 >
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic</option>
@@ -389,6 +435,9 @@ const ChannelManager: React.FC = () => {
                   value={newChannel.channelurl}
                   onChange={(e) => setNewChannel({ ...newChannel, channelurl: e.target.value })}
                   placeholder="例如: https://api.openai.com/v1"
+                  disabled={isEditingBuiltInChannel}
+                  readOnly={isEditingBuiltInChannel}
+                  style={isEditingBuiltInChannel ? { backgroundColor: '#f5f5f5', color: '#666', cursor: 'not-allowed' } : undefined}
                 />
               </div>
               <div className="form-group">
@@ -398,6 +447,9 @@ const ChannelManager: React.FC = () => {
                   value={newChannel.channelkey}
                   onChange={(e) => setNewChannel({ ...newChannel, channelkey: e.target.value })}
                   placeholder="输入 API Key"
+                  disabled={isEditingBuiltInChannel}
+                  readOnly={isEditingBuiltInChannel}
+                  style={isEditingBuiltInChannel ? { backgroundColor: '#f5f5f5', color: '#666', cursor: 'not-allowed' } : undefined}
                 />
               </div>
               <div className="form-row">

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import AccountManager from './components/AccountManager'
+import BackupAccountList from './components/BackupAccountList'
 import ChannelManager from './components/ChannelManager'
 import ModelList from './components/ModelList'
 import Settings from './components/Settings'
@@ -83,7 +84,7 @@ const Icons = {
   ),
 }
 
-type TabType = 'accounts' | 'channels' | 'models' | 'monitor' | 'status' | 'logs' | 'settings'
+type TabType = 'accounts' | 'backupAccounts' | 'channels' | 'models' | 'monitor' | 'status' | 'logs' | 'settings'
 
 interface NavItem {
   id: TabType
@@ -96,6 +97,7 @@ const navItems: { section: string; items: NavItem[] }[] = [
     section: '管理',
     items: [
       { id: 'accounts', label: '账号管理', icon: Icons.Users },
+      { id: 'backupAccounts', label: '备份账号', icon: Icons.Users },
       { id: 'channels', label: '渠道管理', icon: Icons.Channel },
       { id: 'models', label: '模型列表', icon: Icons.Model },
     ],
@@ -118,6 +120,7 @@ const navItems: { section: string; items: NavItem[] }[] = [
 
 const pageTitles: Record<TabType, string> = {
   accounts: '账号管理',
+  backupAccounts: '备份账号列表',
   channels: '渠道管理',
   models: '模型列表',
   status: '服务状态监控',
@@ -144,6 +147,8 @@ function App() {
         return <AccountManager />
       case 'channels':
         return <ChannelManager />
+      case 'backupAccounts':
+        return <BackupAccountList />
       case 'models':
         return <ModelList />
       case 'status':

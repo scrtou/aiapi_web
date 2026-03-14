@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AccountInfo, AccountRequest, ChannelInfo } from '../types';
+import { AccountInfo, AccountRequest, ChannelInfo, NexosQuotaResponse } from '../types';
 import api from '../services/api';
 import './AccountManager.css';
 
@@ -41,7 +41,52 @@ const normalizeAccountType = (value: unknown): string => {
     return 'free';
   }
   const normalized = value.trim().toLowerCase();
-  return normalized === 'pro' ? 'pro' : 'free';
+  if (!normalized) {
+    return 'free';
+  }
+  return normalized;
+};
+
+const getAccountTypeLabel = (accountType?: string): string => {
+  switch ((accountType || '').toLowerCase()) {
+    case 'pro':
+      return 'Pro';
+    case 'trial_budget_exceeded':
+      return 'Free';
+    case 'free':
+      return 'Free';
+    default:
+      return accountType || 'Free';
+  }
+};
+
+const getAccountTypeBadgeClass = (accountType?: string): string => {
+  switch ((accountType || '').toLowerCase()) {
+    case 'pro':
+      return 'active';
+    case 'trial_budget_exceeded':
+      return 'inactive';
+    default:
+      return 'inactive';
+  }
+};
+
+const getNexosQuotaDisplayText = (
+  account: AccountInfo,
+  quota?: NexosQuotaResponse,
+): string => {
+  if ((account.accountType || '').toLowerCase() === 'trial_budget_exceeded') {
+    return 'Trial Budget Exceeded';
+  }
+
+  if (quota) {
+    if (quota.available) {
+      return `${formatNumber(quota.quota?.budget_used_raw ?? quota.quota?.budget_used)} / ${quota.quota?.user_limit_raw ?? '-'}`;
+    }
+    return '查看失败';
+  }
+
+  return '加载中';
 };
 
 const normalizeAccount = (raw: AccountInfo): AccountInfo => ({
@@ -59,17 +104,53 @@ const normalizeAccount = (raw: AccountInfo): AccountInfo => ({
   status: raw.status ?? 'active',
 });
 
+const formatDateTime = (value?: string): string => {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN');
+};
+
+const formatNumber = (value?: unknown): string => {
+  if (value === null || value === undefined || value === '') return '-';
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return '-';
+  return parsed.toFixed(4);
+};
+
+const buildQuotaKey = (account: Pick<AccountInfo, 'apiName' | 'userName'>): string =>
+  `${account.apiName}:${account.userName}`;
+
+const isNexosAccount = (apiName?: string): boolean => apiName === 'nexosapi';
+
+const getDisplayedNexosEmail = (
+  account: AccountInfo,
+  quotaMap: Record<string, NexosQuotaResponse>,
+): string => {
+  const quota = quotaMap[buildQuotaKey(account)];
+  if (quota?.account?.email) {
+    return quota.account.email;
+  }
+  if (account.userName.includes('@')) {
+    return account.userName;
+  }
+  return '-';
+};
+
 const AccountManager: React.FC = () => {
   const [accounts, setAccounts] = useState<AccountInfo[]>([]);
   const [channels, setChannels] = useState<ChannelInfo[]>([]);
+  const [nexosQuotaMap, setNexosQuotaMap] = useState<Record<string, NexosQuotaResponse>>({});
+  const [selectedQuotaAccount, setSelectedQuotaAccount] = useState<AccountInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [editingOriginalPassword, setEditingOriginalPassword] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [autoRegistering, setAutoRegistering] = useState(false);
   const [registerCount, setRegisterCount] = useState(1);
   const [showRegisterInput, setShowRegisterInput] = useState(false);
+  const [selectedAutoRegisterApi, setSelectedAutoRegisterApi] = useState('chaynsapi');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   
   // 表单数据
@@ -86,6 +167,10 @@ const AccountManager: React.FC = () => {
     accountType: 'free',
   });
 
+  const editingAccountForDisplay = accounts.find(
+    (account) => account.apiName === formData.apiName && account.userName === formData.userName,
+  );
+
   // 加载账号列表
   const loadAccounts = async () => {
     setLoading(true);
@@ -93,11 +178,49 @@ const AccountManager: React.FC = () => {
     try {
       const response = await api.get('/aichat/account/info');
       const data = response.data;
-      setAccounts(Array.isArray(data) ? data.map(normalizeAccount) : []);
+      const normalizedAccounts = Array.isArray(data) ? data.map(normalizeAccount) : [];
+      setAccounts(normalizedAccounts);
+      await loadNexosQuotas(normalizedAccounts);
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载账号列表失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadNexosQuotas = async (accountList: AccountInfo[]) => {
+    const nexosAccounts = accountList.filter((account) => account.apiName === 'nexosapi');
+    if (nexosAccounts.length === 0) {
+      setNexosQuotaMap({});
+      return;
+    }
+
+    try {
+      const results = await Promise.all(
+        nexosAccounts.map(async (account) => {
+          try {
+            const response = await api.get<NexosQuotaResponse>('/nexosapi/v1/account/quota', {
+              params: { userName: account.userName },
+            });
+            return [buildQuotaKey(account), response.data] as const;
+          } catch (err: any) {
+            const responseData = err?.response?.data;
+            return [buildQuotaKey(account), (
+              responseData && typeof responseData === 'object'
+                ? responseData
+                : {
+                    available: false,
+                    provider: 'nexosapi',
+                    error: err instanceof Error ? err.message : '加载 Nexos 额度失败',
+                  }
+            ) as NexosQuotaResponse] as const;
+          }
+        }),
+      );
+
+      setNexosQuotaMap(Object.fromEntries(results));
+    } finally {
+      // no-op
     }
   };
 
@@ -108,7 +231,16 @@ const AccountManager: React.FC = () => {
       try {
         const response = await api.get('/aichat/channel/list');
         const channelData = response.data;
-        setChannels(Array.isArray(channelData) ? channelData : []);
+        const normalizedChannels = Array.isArray(channelData) ? channelData : [];
+        setChannels(normalizedChannels);
+        if (normalizedChannels.length > 0) {
+          setSelectedAutoRegisterApi((prev) => {
+            if (normalizedChannels.some((channel) => channel.channelname === prev)) {
+              return prev;
+            }
+            return normalizedChannels[0].channelname;
+          });
+        }
       } catch (err) {
         setError('加载渠道列表失败');
       }
@@ -127,8 +259,15 @@ const AccountManager: React.FC = () => {
       const cleanedData: AccountRequest = {
         apiName: formData.apiName,
         userName: formData.userName,
-        password: formData.password,
       };
+
+      if (!isEditing) {
+        cleanedData.password = formData.password;
+      } else if (formData.password) {
+        cleanedData.password = formData.password;
+      } else if (editingOriginalPassword) {
+        cleanedData.password = editingOriginalPassword;
+      }
 
       if (formData.authToken) cleanedData.authToken = formData.authToken;
       if (formData.userTobitId) cleanedData.userTobitId = formData.userTobitId;
@@ -158,6 +297,7 @@ const AccountManager: React.FC = () => {
         });
         setShowAddForm(false);
         setIsEditing(false);
+        setEditingOriginalPassword('');
         // 重新加载账号列表
         await loadAccounts();
       } else {
@@ -175,7 +315,7 @@ const AccountManager: React.FC = () => {
     setFormData({
       apiName: account.apiName,
       userName: account.userName,
-      password: account.password,
+      password: account.password || '',
       authToken: account.authToken || '',
       userTobitId: account.userTobitId,
       personId: account.personId || '',
@@ -184,6 +324,7 @@ const AccountManager: React.FC = () => {
       accountStatus: account.accountStatus ?? true,
       accountType: account.accountType || 'free',
     });
+    setEditingOriginalPassword(account.password || '');
     setIsEditing(true);
     setShowAddForm(true);
   };
@@ -241,16 +382,20 @@ const AccountManager: React.FC = () => {
       setError('注册数量必须在 1-20 之间');
       return;
     }
+    if (!selectedAutoRegisterApi) {
+      setError('请选择要自动注册的渠道');
+      return;
+    }
     setAutoRegistering(true);
     setError(null);
     setStatusMessage(null);
     try {
       const response = await api.post('/aichat/account/autoregister', {
-        apiName: 'chaynsapi',
+        apiName: selectedAutoRegisterApi,
         count: registerCount,
       });
       const data = response.data;
-      setStatusMessage(data.message || `正在后台注册 ${registerCount} 个账号`);
+      setStatusMessage(data.message || `正在后台为 ${selectedAutoRegisterApi} 注册 ${registerCount} 个账号`);
       setShowRegisterInput(false);
       // 延迟后重新加载账号列表
       setTimeout(() => {
@@ -279,6 +424,22 @@ const AccountManager: React.FC = () => {
           <div className="auto-register-group">
             {showRegisterInput ? (
               <>
+                <select
+                  className="register-channel-select"
+                  value={selectedAutoRegisterApi}
+                  onChange={(e) => setSelectedAutoRegisterApi(e.target.value)}
+                  disabled={autoRegistering || channels.length === 0}
+                >
+                  {channels.length === 0 ? (
+                    <option value="">暂无可选渠道</option>
+                  ) : (
+                    channels.map((channel) => (
+                      <option key={channel.id} value={channel.channelname}>
+                        {channel.channelname}
+                      </option>
+                    ))
+                  )}
+                </select>
                 <input
                   type="number"
                   className="register-count-input"
@@ -291,7 +452,7 @@ const AccountManager: React.FC = () => {
                 <button
                   className="btn-register"
                   onClick={handleAutoRegister}
-                  disabled={autoRegistering || loading}
+                  disabled={autoRegistering || loading || channels.length === 0 || !selectedAutoRegisterApi}
                 >
                   {autoRegistering ? '⏳ 注册中...' : '✅ 确认注册'}
                 </button>
@@ -369,17 +530,31 @@ const AccountManager: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label>userName *</label>
+              <label>{isNexosAccount(formData.apiName) ? '登录邮箱 *' : 'userName *'}</label>
               <input
                 type="text"
                 value={formData.userName}
                 onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
                 required
                 placeholder="userName"
-                disabled={isEditing}
-              />
+                  disabled={isEditing}
+                />
+              </div>
             </div>
-          </div>
+
+          {isEditing && isNexosAccount(formData.apiName) && (
+            <div className="form-row">
+              <div className="form-group">
+                <label>注册邮箱 / 登录邮箱</label>
+                <input
+                  type="text"
+                  value={editingAccountForDisplay ? getDisplayedNexosEmail(editingAccountForDisplay, nexosQuotaMap) : (formData.userName || '')}
+                  readOnly
+                  disabled
+                />
+              </div>
+            </div>
+          )}
 
           <div className="form-row">
             <div className="form-group">
@@ -388,8 +563,8 @@ const AccountManager: React.FC = () => {
                 type={isEditing ? 'text' : 'password'}
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-                placeholder="password"
+                required={!isEditing}
+                placeholder={isEditing ? '留空则保持原密码不变' : 'password'}
               />
             </div>
 
@@ -445,6 +620,7 @@ const AccountManager: React.FC = () => {
               >
                 <option value="free">Free</option>
                 <option value="pro">Pro</option>
+                <option value="trial_budget_exceeded">Trial Budget Exceeded</option>
               </select>
             </div>
 
@@ -479,6 +655,7 @@ const AccountManager: React.FC = () => {
               onClick={() => {
                 setShowAddForm(false);
                 setIsEditing(false);
+                setEditingOriginalPassword('');
                 setFormData({
                   apiName: '',
                   userName: '',
@@ -514,6 +691,7 @@ const AccountManager: React.FC = () => {
                 <tr>
                   <th>apiName</th>
                   <th>userName</th>
+                  <th>登录邮箱</th>
                   <th>password</th>
                   <th>authToken</th>
                   <th>userTobitId</th>
@@ -522,6 +700,7 @@ const AccountManager: React.FC = () => {
                   <th>tokenStatus</th>
                   <th>accountStatus</th>
                   <th>accountType</th>
+                  <th>Nexos额度</th>
                   <th>createTime</th>
                   <th>actions</th>
                 </tr>
@@ -531,6 +710,7 @@ const AccountManager: React.FC = () => {
                   <tr key={`${account.apiName}-${account.userName}-${index}`}>
                     <td>{account.apiName}</td>
                     <td>{account.userName}</td>
+                    <td>{isNexosAccount(account.apiName) ? getDisplayedNexosEmail(account, nexosQuotaMap) : '-'}</td>
                     <td>
                       <span className="password-mask">{'*'.repeat(8)}</span>
                     </td>
@@ -557,9 +737,31 @@ const AccountManager: React.FC = () => {
                       </span>
                     </td>
                     <td>
-                      <span className={`status-badge ${account.accountType === 'pro' ? 'active' : 'inactive'}`}>
-                        {account.accountType === 'pro' ? 'Pro' : 'Free'}
+                      <span className={`status-badge ${getAccountTypeBadgeClass(account.accountType)}`}>
+                        {getAccountTypeLabel(account.accountType)}
                       </span>
+                    </td>
+                    <td>
+                      {account.apiName === 'nexosapi' ? (
+                        (() => {
+                          const quota = nexosQuotaMap[buildQuotaKey(account)];
+                          return (
+                            <button
+                              type="button"
+                              className="btn-secondary btn-small quota-detail-btn"
+                              onClick={() => setSelectedQuotaAccount(account)}
+                              disabled={!quota}
+                              title={quota?.available
+                                ? `已用额度: ${formatNumber(quota.quota?.budget_used_raw ?? quota.quota?.budget_used)}`
+                                : (quota?.error || '暂无额度信息')}
+                            >
+                              {getNexosQuotaDisplayText(account, quota)}
+                            </button>
+                          );
+                        })()
+                      ) : (
+                        <span className="empty">-</span>
+                      )}
                     </td>
                     <td>
                       {account.createTime ? (
@@ -594,6 +796,79 @@ const AccountManager: React.FC = () => {
           </div>
         )}
       </div>
+
+      {selectedQuotaAccount && (
+        <div className="dialog-overlay" onClick={() => setSelectedQuotaAccount(null)}>
+          <div className="dialog quota-detail-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="dialog-header">
+              <h3>Nexos额度详情 - {selectedQuotaAccount.userName}</h3>
+              <button className="dialog-close" onClick={() => setSelectedQuotaAccount(null)}>
+                ×
+              </button>
+            </div>
+            <div className="dialog-body">
+              {(() => {
+                const quota = nexosQuotaMap[buildQuotaKey(selectedQuotaAccount)];
+                if (!quota) {
+                  return <div className="quota-error">额度信息加载中...</div>;
+                }
+                if (!quota.available) {
+                  return <div className="quota-error">{quota.error || '暂无可用额度信息'}</div>;
+                }
+
+                return (
+                  <div className="quota-grid">
+                    <div className="quota-item">
+                      <span className="quota-label">账号</span>
+                      <span className="quota-value">{quota.account?.userName || selectedQuotaAccount.userName}</span>
+                    </div>
+                    <div className="quota-item">
+                      <span className="quota-label">账号类型</span>
+                      <span className="quota-value">{getAccountTypeLabel(quota.account?.accountType || selectedQuotaAccount.accountType)}</span>
+                    </div>
+                    <div className="quota-item">
+                      <span className="quota-label">套餐类型</span>
+                      <span className="quota-value">{quota.quota?.subscription_type || '-'}</span>
+                    </div>
+                    <div className="quota-item">
+                      <span className="quota-label">状态</span>
+                      <span className="quota-value">{quota.quota?.status || '-'}</span>
+                    </div>
+                    <div className="quota-item">
+                      <span className="quota-label">已用额度</span>
+                      <span className="quota-value">{formatNumber(quota.quota?.budget_used_raw ?? quota.quota?.budget_used)}</span>
+                    </div>
+                    <div className="quota-item">
+                      <span className="quota-label">已用席位</span>
+                      <span className="quota-value">{quota.quota?.seats_used_raw ?? '-'}</span>
+                    </div>
+                    <div className="quota-item">
+                      <span className="quota-label">席位上限</span>
+                      <span className="quota-value">{quota.quota?.user_limit_raw ?? '-'}</span>
+                    </div>
+                    <div className="quota-item">
+                      <span className="quota-label">自动续费</span>
+                      <span className="quota-value">{quota.quota?.auto_renew ? '是' : '否'}</span>
+                    </div>
+                    <div className="quota-item">
+                      <span className="quota-label">启用状态</span>
+                      <span className="quota-value">{quota.quota?.enabled ? '已启用' : '未启用'}</span>
+                    </div>
+                    <div className="quota-item">
+                      <span className="quota-label">开始时间</span>
+                      <span className="quota-value">{formatDateTime(quota.quota?.start_at)}</span>
+                    </div>
+                    <div className="quota-item">
+                      <span className="quota-label">结束时间</span>
+                      <span className="quota-value">{formatDateTime(quota.quota?.end_at)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -35,6 +35,35 @@ export interface AccountOperationResponse {
   status: 'success' | 'failed';
 }
 
+export interface BackupAccountInfo extends AccountInfo {}
+
+export interface NexosQuotaInfo {
+  auto_renew?: boolean;
+  budget_used?: number;
+  budget_used_raw?: number;
+  enabled?: boolean;
+  end_at?: string;
+  seats_used_raw?: number;
+  start_at?: string;
+  status?: string;
+  subscription_type?: string;
+  trial_active_detected?: boolean;
+  trial_type_detected?: boolean;
+  user_limit_raw?: number;
+}
+
+export interface NexosQuotaResponse {
+  account?: {
+    accountType?: string;
+    email?: string;
+    userName?: string;
+  };
+  available: boolean;
+  provider: string;
+  quota?: NexosQuotaInfo;
+  error?: string;
+}
+
 // 账号自动化设置
 export interface AccountAutomationSettings {
   autoDeleteEnabled: boolean;

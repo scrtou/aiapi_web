@@ -141,6 +141,19 @@
   white-space: nowrap;
 }
 
+.builtin-badge {
+  margin-left: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  background-color: #e0e7ff;
+  color: #4338ca;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
 /* URL 单元格 */
 .channel-table .channel-url {
   max-width: 250px;

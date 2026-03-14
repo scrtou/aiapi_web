@@ -42,6 +42,73 @@
   font-size: 0.875rem;
 }
 
+.quota-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.quota-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.875rem;
+}
+
+.quota-card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quota-loading {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.quota-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.875rem 1rem;
+}
+
+.quota-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.quota-label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.quota-value {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  word-break: break-word;
+}
+
+.quota-error {
+  color: var(--error-color);
+  font-size: 0.875rem;
+}
+
+.quota-detail-btn {
+  min-width: 110px;
+  white-space: nowrap;
+}
+
+.quota-detail-dialog {
+  max-width: 760px;
+}
+
 /* 刷新按钮 */
 .btn-refresh {
   background-color: #0ea5e9;
@@ -72,6 +139,27 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.register-channel-select {
+  min-width: 140px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.register-channel-select:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px #8b5cf633;
+}
+
+.register-channel-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-register {
@@ -415,4 +503,3 @@
     width: 100%;
   }
 }
-
