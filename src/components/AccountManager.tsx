@@ -121,6 +121,8 @@ const buildQuotaKey = (account: Pick<AccountInfo, 'apiName' | 'userName'>): stri
   `${account.apiName}:${account.userName}`;
 
 const isNexosAccount = (apiName?: string): boolean => apiName === 'nexosapi';
+const isTemporaryPlaceholderAccount = (account: AccountInfo): boolean =>
+  account.status === 'waiting' || account.status === 'registering';
 
 const getDisplayedNexosEmail = (
   account: AccountInfo,
@@ -178,7 +180,9 @@ const AccountManager: React.FC = () => {
     try {
       const response = await api.get('/aichat/account/info');
       const data = response.data;
-      const normalizedAccounts = Array.isArray(data) ? data.map(normalizeAccount) : [];
+      const normalizedAccounts = Array.isArray(data)
+        ? data.map(normalizeAccount).filter((account) => !isTemporaryPlaceholderAccount(account))
+        : [];
       setAccounts(normalizedAccounts);
       await loadNexosQuotas(normalizedAccounts);
     } catch (err) {

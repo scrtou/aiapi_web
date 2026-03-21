@@ -92,6 +92,7 @@ const BackupAccountList: React.FC = () => {
             <tr>
               <th>apiName</th>
               <th>userName</th>
+              <th>password</th>
               <th>userTobitId</th>
               <th>personId</th>
               <th>useCount</th>
@@ -105,13 +106,14 @@ const BackupAccountList: React.FC = () => {
           <tbody>
             {accounts.length === 0 ? (
               <tr>
-                <td colSpan={10} className="empty">暂无备份账号</td>
+                <td colSpan={11} className="empty">暂无备份账号</td>
               </tr>
             ) : (
               accounts.map((account) => (
                 <tr key={`${account.apiName}:${account.userName}:${account.createTime}`}>
                   <td>{account.apiName}</td>
                   <td>{account.userName}</td>
+                  <td>{account.password || '-'}</td>
                   <td>{account.userTobitId || '-'}</td>
                   <td>{account.personId || '-'}</td>
                   <td>{account.useCount || 0}</td>

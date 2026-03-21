@@ -99,6 +99,7 @@ export interface ChannelInfo {
   createtime: string;
   updatetime: string;
   accountcount?: number;
+  accountretentiondays?: number;
   supports_tool_calls?: boolean;
 }
 
@@ -115,6 +116,7 @@ export interface ChannelRequest {
   priority?: number;
   description?: string;
   accountcount?: number;
+  accountretentiondays?: number;
   supports_tool_calls?: boolean;
 }
 

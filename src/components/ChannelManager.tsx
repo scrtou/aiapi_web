@@ -21,6 +21,7 @@ const ChannelManager: React.FC = () => {
     priority: 1,
     description: '',
     accountcount: 0,
+    accountretentiondays: 0,
     supports_tool_calls: false
   });
 
@@ -130,6 +131,7 @@ const ChannelManager: React.FC = () => {
           priority: 1,
           description: '',
           accountcount: 0,
+          accountretentiondays: 0,
           supports_tool_calls: false
         });
         await loadChannels();
@@ -158,6 +160,7 @@ const ChannelManager: React.FC = () => {
         priority: channel.priority,
         description: channel.description || '',
         accountcount: channel.accountcount || 0,
+        accountretentiondays: channel.accountretentiondays || 0,
         supports_tool_calls: channel.supports_tool_calls || false
       });
     setIsEditing(true);
@@ -246,6 +249,7 @@ const ChannelManager: React.FC = () => {
                 priority: 1,
                 description: '',
                 accountcount: 0,
+                accountretentiondays: 0,
                 supports_tool_calls: false
               });
               setShowAddDialog(true);
@@ -297,7 +301,8 @@ const ChannelManager: React.FC = () => {
               <th>超时(秒)</th>
               <th>优先级</th>
               <th>目标账号数</th>
-              <th>描述</th>
+                  <th>账号保留天数</th>
+                  <th>描述</th>
               <th>创建时间</th>
               <th>更新时间</th>
               <th>操作</th>
@@ -306,7 +311,7 @@ const ChannelManager: React.FC = () => {
           <tbody>
             {channels.length === 0 ? (
               <tr>
-                <td colSpan={15} className="empty-message">
+                <td colSpan={16} className="empty-message">
                   暂无渠道数据
                 </td>
               </tr>
@@ -349,6 +354,7 @@ const ChannelManager: React.FC = () => {
                   <td>{channel.timeout}</td>
                   <td>{channel.priority}</td>
                   <td>{channel.accountcount || 0}</td>
+                  <td>{channel.accountretentiondays || 0}</td>
                   <td className="description">{channel.description || '-'}</td>
                   <td>{channel.createtime}</td>
                   <td>{channel.updatetime}</td>
@@ -399,7 +405,7 @@ const ChannelManager: React.FC = () => {
             <div className="dialog-content">
               {isEditingBuiltInChannel && (
                 <div className="info-message" style={{ marginBottom: '1rem' }}>
-                  内置渠道仅允许编辑：启用状态、支持工具调用、最大并发数、超时时间、优先级、目标账号数量、描述。
+                  内置渠道仅允许编辑：启用状态、支持工具调用、最大并发数、超时时间、优先级、目标账号数量、账号保留天数、描述。
                 </div>
               )}
               <div className="form-group">
@@ -486,6 +492,15 @@ const ChannelManager: React.FC = () => {
                     type="number"
                     value={newChannel.accountcount}
                     onChange={(e) => setNewChannel({ ...newChannel, accountcount: parseInt(e.target.value) || 0 })}
+                    min="0"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>账号保留天数 (0表示不生效)</label>
+                  <input
+                    type="number"
+                    value={newChannel.accountretentiondays}
+                    onChange={(e) => setNewChannel({ ...newChannel, accountretentiondays: parseInt(e.target.value) || 0 })}
                     min="0"
                   />
                 </div>
