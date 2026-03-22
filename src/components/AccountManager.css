@@ -109,6 +109,78 @@
   max-width: 760px;
 }
 
+.retool-workspace-dialog {
+  max-width: 960px;
+}
+
+.retool-workspace-dialog textarea {
+  font-family: SF Mono, Monaco, Inconsolata, Fira Code, monospace;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.form-group-full {
+  grid-column: 1 / -1;
+}
+
+.retool-pool-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.retool-pool-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.retool-pool-card.wide {
+  grid-column: span 2;
+}
+
+.retool-pool-label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+
+.retool-pool-value {
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.retool-pool-value.text {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.retool-pool-value.idle {
+  color: #0369a1;
+}
+
+.retool-pool-value.active {
+  color: #15803d;
+}
+
+.retool-pool-value.inactive {
+  color: #b91c1c;
+}
+
+.retool-pool-sub {
+  margin-top: 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
 /* 刷新按钮 */
 .btn-refresh {
   background-color: #0ea5e9;
@@ -389,6 +461,83 @@
   cursor: not-allowed;
 }
 
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.dialog {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: 1.25rem;
+}
+
+.dialog-close:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.dialog-body,
+.dialog-content {
+  padding: 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border-color);
+}
+
 .btn-small {
   padding: 0.375rem 0.75rem;
   font-size: 0.75rem;
@@ -400,6 +549,11 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   overflow: hidden;
+}
+
+.retool-form {
+  border-color: #c7d2fe;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08);
 }
 
 .accounts-table-container h3 {
@@ -441,6 +595,7 @@
   border-bottom: 1px solid var(--border-color);
   font-size: 0.875rem;
   color: var(--text-primary);
+  vertical-align: top;
 }
 
 .accounts-table tbody tr:hover {
@@ -470,6 +625,45 @@
 .status-badge.inactive {
   background-color: #fee2e2;
   color: #991b1b;
+}
+
+.status-badge.idle {
+  background-color: #e0f2fe;
+  color: #075985;
+}
+
+.resource-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.resource-type-badge.classic {
+  background-color: #e0f2fe;
+  color: #075985;
+}
+
+.resource-type-badge.retool {
+  background-color: #ede9fe;
+  color: #5b21b6;
+}
+
+.resource-main {
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.resource-sub {
+  margin-top: 0.2rem;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 /* 操作按钮组 */

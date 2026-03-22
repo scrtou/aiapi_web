@@ -26,7 +26,7 @@ const ChannelManager: React.FC = () => {
   });
 
   const isBuiltInChannel = (channelname: string) =>
-    channelname === 'chaynsapi' || channelname === 'nexosapi';
+    channelname === 'chaynsapi' || channelname === 'nexosapi' || channelname === 'retoolapi';
   const isEditingBuiltInChannel = isEditing && isBuiltInChannel(newChannel.channelname || '');
 
   // 加载渠道列表

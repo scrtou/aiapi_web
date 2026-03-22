@@ -6,6 +6,12 @@ import type {
   ModelStatusResponse,
   StatusQueryParams,
   AccountAutomationSettings,
+  RetoolWorkspaceCreateRequest,
+  RetoolWorkspaceCreateResponse,
+  RetoolWorkspaceInfo,
+  RetoolWorkspaceListResponse,
+  RetoolWorkspacePoolStatus,
+  RetoolWorkspaceUpsertRequest,
 } from '../types';
 
 const api = axios.create({
@@ -79,6 +85,76 @@ export const saveAccountAutomationSettings = async (
     settings: AccountAutomationSettings;
   }>('/aichat/account/settings', settings);
   return response.data.settings;
+};
+
+export const getRetoolWorkspaces = async (): Promise<RetoolWorkspaceListResponse> => {
+  const response = await api.get<RetoolWorkspaceListResponse>('/aichat/retool/workspace/list');
+  return response.data;
+};
+
+export const createRetoolWorkspace = async (
+  payload: RetoolWorkspaceCreateRequest,
+): Promise<RetoolWorkspaceCreateResponse> => {
+  const response = await api.post<RetoolWorkspaceCreateResponse>('/aichat/retool/workspace/create', payload);
+  return response.data;
+};
+
+export const verifyRetoolWorkspace = async (workspaceId: string): Promise<{
+  workspaceId: string;
+  ready: boolean;
+  verifyStatus: string;
+  checks: Record<string, boolean>;
+}> => {
+  const response = await api.post('/aichat/retool/workspace/verify', { workspaceId });
+  return response.data;
+};
+
+export const disableRetoolWorkspace = async (workspaceId: string): Promise<{
+  status: 'success' | 'failed';
+  workspaceId: string;
+  newStatus: string;
+}> => {
+  const response = await api.post('/aichat/retool/workspace/disable', { workspaceId });
+  return response.data;
+};
+
+export const enableRetoolWorkspace = async (workspaceId: string): Promise<{
+  status: 'success' | 'failed';
+  workspaceId: string;
+  newStatus: string;
+  verifyStatus: string;
+}> => {
+  const response = await api.post('/aichat/retool/workspace/enable', { workspaceId });
+  return response.data;
+};
+
+export const deleteRetoolWorkspace = async (workspaceId: string): Promise<{
+  status: 'success' | 'failed';
+  workspaceId: string;
+}> => {
+  const response = await api.post('/aichat/retool/workspace/delete', { workspaceId });
+  return response.data;
+};
+
+export const getRetoolWorkspaceInfo = async (workspaceId: string): Promise<{
+  workspace: RetoolWorkspaceInfo;
+  hasExecutionContext: boolean;
+}> => {
+  const response = await api.get('/aichat/retool/workspace/info', { params: { workspaceId } });
+  return response.data;
+};
+
+export const getRetoolWorkspacePoolStatus = async (): Promise<RetoolWorkspacePoolStatus> => {
+  const response = await api.get<RetoolWorkspacePoolStatus>('/aichat/retool/workspace/pool-status');
+  return response.data;
+};
+
+export const upsertRetoolWorkspace = async (payload: RetoolWorkspaceUpsertRequest): Promise<{
+  status: 'success' | 'failed';
+  workspace: RetoolWorkspaceInfo;
+}> => {
+  const response = await api.post('/aichat/retool/workspace/upsert', payload);
+  return response.data;
 };
 
 export default api;

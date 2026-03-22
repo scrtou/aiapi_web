@@ -71,6 +71,96 @@ export interface AccountAutomationSettings {
   autoRegisterEnabled: boolean;
 }
 
+export interface RetoolWorkspaceInfo {
+  workspaceId: string;
+  email: string;
+  password?: string;
+  mailProvider?: string;
+  mailAccountId?: string;
+  baseUrl: string;
+  subdomain: string;
+  accessToken?: string;
+  xsrfToken?: string;
+  openaiResourceUuid?: string;
+  openaiResourceName?: string;
+  anthropicResourceUuid?: string;
+  anthropicResourceName?: string;
+  workflowId?: string;
+  workflowApiKey?: string;
+  agentId?: string;
+  status?: string;
+  verifyStatus?: string;
+  lastVerifyAt?: string;
+  lastUsedAt?: string;
+  inUseCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  extraCookies?: Record<string, unknown>;
+  notes?: Record<string, unknown>;
+}
+
+export interface RetoolWorkspaceUpsertRequest {
+  workspaceId: string;
+  email?: string;
+  password?: string;
+  mailProvider?: string;
+  mailAccountId?: string;
+  baseUrl: string;
+  subdomain?: string;
+  accessToken?: string;
+  xsrfToken?: string;
+  extraCookies?: Record<string, unknown>;
+  openaiResourceUuid?: string;
+  openaiResourceName?: string;
+  anthropicResourceUuid?: string;
+  anthropicResourceName?: string;
+  workflowId?: string;
+  workflowApiKey?: string;
+  agentId?: string;
+  status?: string;
+  verifyStatus?: string;
+  notes?: Record<string, unknown>;
+}
+
+export interface RetoolWorkspaceListItem {
+  id: string;
+  kind: string;
+  provider: string;
+  status: string;
+  displayName: string;
+  metadata: RetoolWorkspaceInfo;
+}
+
+export interface RetoolWorkspaceListResponse {
+  items: RetoolWorkspaceListItem[];
+  total: number;
+}
+
+export interface RetoolWorkspaceCreateRequest {
+  mail_providers?: string[];
+  password?: string;
+  full_name?: string;
+  workspace_prefix?: string;
+}
+
+export interface RetoolWorkspaceCreateResponse {
+  status: 'success' | 'failed';
+  workspace: RetoolWorkspaceInfo;
+}
+
+export interface RetoolWorkspacePoolStatus {
+  total: number;
+  idle: number;
+  inUse: number;
+  disabled: number;
+  latestUsedAt?: string;
+  consecutiveFailures: number;
+  lastFailureAt?: string;
+  lastFailureReason?: string;
+  cooldownUntil?: string;
+  channel?: ChannelInfo;
+}
+
 // 模型信息接口
 export interface Model {
   id: string;

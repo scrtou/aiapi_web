@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AccountInfo, AccountRequest, ChannelInfo, NexosQuotaResponse } from '../types';
-import api from '../services/api';
+import { AccountInfo, AccountRequest, ChannelInfo, NexosQuotaResponse, RetoolWorkspaceInfo, RetoolWorkspaceListItem, RetoolWorkspacePoolStatus, RetoolWorkspaceUpsertRequest } from '../types';
+import api, { createRetoolWorkspace, deleteRetoolWorkspace, disableRetoolWorkspace, enableRetoolWorkspace, getRetoolWorkspacePoolStatus, getRetoolWorkspaces, upsertRetoolWorkspace, verifyRetoolWorkspace } from '../services/api';
 import './AccountManager.css';
 
 
@@ -60,17 +60,6 @@ const getAccountTypeLabel = (accountType?: string): string => {
   }
 };
 
-const getAccountTypeBadgeClass = (accountType?: string): string => {
-  switch ((accountType || '').toLowerCase()) {
-    case 'pro':
-      return 'active';
-    case 'trial_budget_exceeded':
-      return 'inactive';
-    default:
-      return 'inactive';
-  }
-};
-
 const getNexosQuotaDisplayText = (
   account: AccountInfo,
   quota?: NexosQuotaResponse,
@@ -117,6 +106,71 @@ const formatNumber = (value?: unknown): string => {
   return parsed.toFixed(4);
 };
 
+const formatJsonText = (value?: Record<string, unknown>): string => {
+  if (!value || Object.keys(value).length === 0) {
+    return '{}';
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return '{}';
+  }
+};
+
+type RetoolFormMode = 'create' | 'edit';
+
+type RetoolFormState = {
+  fullName: string;
+  password: string;
+  workspacePrefix: string;
+  mailProviders: string;
+  workspaceId: string;
+  email: string;
+  mailProvider: string;
+  mailAccountId: string;
+  baseUrl: string;
+  subdomain: string;
+  accessToken: string;
+  xsrfToken: string;
+  openaiResourceUuid: string;
+  openaiResourceName: string;
+  anthropicResourceUuid: string;
+  anthropicResourceName: string;
+  workflowId: string;
+  workflowApiKey: string;
+  agentId: string;
+  status: string;
+  verifyStatus: string;
+  extraCookiesJson: string;
+  notesJson: string;
+};
+
+const createDefaultRetoolForm = (): RetoolFormState => ({
+  fullName: 'Codex Flow',
+  password: 'RetoolFlow123!!',
+  workspacePrefix: 'codexorg',
+  mailProviders: 'gptmail',
+  workspaceId: '',
+  email: '',
+  mailProvider: '',
+  mailAccountId: '',
+  baseUrl: '',
+  subdomain: '',
+  accessToken: '',
+  xsrfToken: '',
+  openaiResourceUuid: '',
+  openaiResourceName: '',
+  anthropicResourceUuid: '',
+  anthropicResourceName: '',
+  workflowId: '',
+  workflowApiKey: '',
+  agentId: '',
+  status: 'ready',
+  verifyStatus: 'unknown',
+  extraCookiesJson: '{}',
+  notesJson: '{}',
+});
+
 const buildQuotaKey = (account: Pick<AccountInfo, 'apiName' | 'userName'>): string =>
   `${account.apiName}:${account.userName}`;
 
@@ -140,12 +194,15 @@ const getDisplayedNexosEmail = (
 
 const AccountManager: React.FC = () => {
   const [accounts, setAccounts] = useState<AccountInfo[]>([]);
+  const [retoolWorkspaces, setRetoolWorkspaces] = useState<RetoolWorkspaceListItem[]>([]);
+  const [retoolPoolStatus, setRetoolPoolStatus] = useState<RetoolWorkspacePoolStatus | null>(null);
   const [channels, setChannels] = useState<ChannelInfo[]>([]);
   const [nexosQuotaMap, setNexosQuotaMap] = useState<Record<string, NexosQuotaResponse>>({});
   const [selectedQuotaAccount, setSelectedQuotaAccount] = useState<AccountInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showRetoolForm, setShowRetoolForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingOriginalPassword, setEditingOriginalPassword] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -154,6 +211,12 @@ const AccountManager: React.FC = () => {
   const [showRegisterInput, setShowRegisterInput] = useState(false);
   const [selectedAutoRegisterApi, setSelectedAutoRegisterApi] = useState('chaynsapi');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [retoolCreating, setRetoolCreating] = useState(false);
+  const [retoolVerifyingId, setRetoolVerifyingId] = useState<string | null>(null);
+  const [retoolFormMode, setRetoolFormMode] = useState<RetoolFormMode>('create');
+  const [retoolSaving, setRetoolSaving] = useState(false);
+  const [retoolEditingWorkspaceId, setRetoolEditingWorkspaceId] = useState<string | null>(null);
+  const [retoolForm, setRetoolForm] = useState<RetoolFormState>(createDefaultRetoolForm());
   
   // 表单数据
   const [formData, setFormData] = useState<AccountRequest>({
@@ -172,6 +235,8 @@ const AccountManager: React.FC = () => {
   const editingAccountForDisplay = accounts.find(
     (account) => account.apiName === formData.apiName && account.userName === formData.userName,
   );
+  const manualAccountChannels = channels.filter((channel) => channel.channelname !== 'retoolapi');
+  const autoRegisterChannels = channels;
 
   // 加载账号列表
   const loadAccounts = async () => {
@@ -228,9 +293,25 @@ const AccountManager: React.FC = () => {
     }
   };
 
+  const loadRetoolWorkspaces = async () => {
+    try {
+      const [response, poolStatus] = await Promise.all([
+        getRetoolWorkspaces(),
+        getRetoolWorkspacePoolStatus().catch(() => null),
+      ]);
+      setRetoolWorkspaces(Array.isArray(response.items) ? response.items : []);
+      setRetoolPoolStatus(poolStatus);
+    } catch (err) {
+      console.error('加载 Retool workspace 列表失败:', err);
+      setRetoolWorkspaces([]);
+      setRetoolPoolStatus(null);
+    }
+  };
+
   // 初始加载
   useEffect(() => {
     loadAccounts();
+    loadRetoolWorkspaces();
     const loadChannels = async () => {
       try {
         const response = await api.get('/aichat/channel/list');
@@ -412,6 +493,426 @@ const AccountManager: React.FC = () => {
     }
   };
 
+  const handleCreateRetoolWorkspace = async () => {
+    setRetoolCreating(true);
+    setError(null);
+    setStatusMessage(null);
+    try {
+      const mailProviders = retoolForm.mailProviders
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const response = await createRetoolWorkspace({
+        full_name: retoolForm.fullName,
+        password: retoolForm.password,
+        workspace_prefix: retoolForm.workspacePrefix,
+        mail_providers: mailProviders.length > 0 ? mailProviders : ['gptmail'],
+      });
+      setStatusMessage(`Retool workspace 创建成功：${response.workspace.baseUrl || response.workspace.workspaceId}`);
+      setShowRetoolForm(false);
+      setRetoolFormMode('create');
+      setRetoolEditingWorkspaceId(null);
+      setRetoolForm(createDefaultRetoolForm());
+      await loadRetoolWorkspaces();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '创建 Retool workspace 失败');
+    } finally {
+      setRetoolCreating(false);
+    }
+  };
+
+  const handleVerifyRetoolWorkspace = async (workspaceId: string) => {
+    setRetoolVerifyingId(workspaceId);
+    setError(null);
+    setStatusMessage(null);
+    try {
+      const result = await verifyRetoolWorkspace(workspaceId);
+      setStatusMessage(`Retool workspace 校验完成：${result.workspaceId} (${result.verifyStatus})`);
+      await loadRetoolWorkspaces();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '校验 Retool workspace 失败');
+    } finally {
+      setRetoolVerifyingId(null);
+    }
+  };
+
+  const handleToggleRetoolWorkspace = async (workspaceId: string, enable: boolean) => {
+    setRetoolVerifyingId(workspaceId);
+    setError(null);
+    setStatusMessage(null);
+    try {
+      if (enable) {
+        const result = await enableRetoolWorkspace(workspaceId);
+        setStatusMessage(`Retool workspace 已启用：${result.workspaceId} (${result.newStatus})`);
+      } else {
+        const result = await disableRetoolWorkspace(workspaceId);
+        setStatusMessage(`Retool workspace 已禁用：${result.workspaceId} (${result.newStatus})`);
+      }
+      await loadRetoolWorkspaces();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `${enable ? '启用' : '禁用'} Retool workspace 失败`);
+    } finally {
+      setRetoolVerifyingId(null);
+    }
+  };
+
+  const handleDeleteRetoolWorkspace = async (workspaceId: string) => {
+    if (!window.confirm(`确定要删除 Retool Workspace ${workspaceId} 吗？此操作不可恢复。`)) {
+      return;
+    }
+    setRetoolVerifyingId(workspaceId);
+    setError(null);
+    setStatusMessage(null);
+    try {
+      const result = await deleteRetoolWorkspace(workspaceId);
+      setStatusMessage(`Retool workspace 已删除：${result.workspaceId}`);
+      await loadRetoolWorkspaces();
+      if (retoolEditingWorkspaceId === workspaceId) {
+        setShowRetoolForm(false);
+        setRetoolFormMode('create');
+        setRetoolEditingWorkspaceId(null);
+        setRetoolForm(createDefaultRetoolForm());
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除 Retool workspace 失败');
+    } finally {
+      setRetoolVerifyingId(null);
+    }
+  };
+
+  const handleEditRetoolWorkspace = (item: RetoolWorkspaceListItem) => {
+    const workspace = item.metadata;
+    setRetoolFormMode('edit');
+    setRetoolEditingWorkspaceId(workspace.workspaceId || item.id);
+    setRetoolForm({
+      fullName: '',
+      password: workspace.password || '',
+      workspacePrefix: '',
+      mailProviders: '',
+      workspaceId: workspace.workspaceId || item.id,
+      email: workspace.email || '',
+      mailProvider: workspace.mailProvider || '',
+      mailAccountId: workspace.mailAccountId || '',
+      baseUrl: workspace.baseUrl || '',
+      subdomain: workspace.subdomain || '',
+      accessToken: workspace.accessToken || '',
+      xsrfToken: workspace.xsrfToken || '',
+      openaiResourceUuid: workspace.openaiResourceUuid || '',
+      openaiResourceName: workspace.openaiResourceName || '',
+      anthropicResourceUuid: workspace.anthropicResourceUuid || '',
+      anthropicResourceName: workspace.anthropicResourceName || '',
+      workflowId: workspace.workflowId || '',
+      workflowApiKey: workspace.workflowApiKey || '',
+      agentId: workspace.agentId || '',
+      status: workspace.status || item.status || 'ready',
+      verifyStatus: workspace.verifyStatus || 'unknown',
+      extraCookiesJson: formatJsonText(workspace.extraCookies),
+      notesJson: formatJsonText(workspace.notes),
+    });
+    setShowRetoolForm(true);
+    setError(null);
+    setStatusMessage(null);
+  };
+
+  const handleSaveRetoolWorkspace = async () => {
+    if (retoolFormMode !== 'edit') return;
+    if (!retoolForm.workspaceId.trim()) {
+      setError('workspaceId 不能为空');
+      return;
+    }
+    if (!retoolForm.baseUrl.trim()) {
+      setError('baseUrl 不能为空');
+      return;
+    }
+
+    setRetoolSaving(true);
+    setError(null);
+    setStatusMessage(null);
+    try {
+      let extraCookies: Record<string, unknown> | undefined;
+      let notes: Record<string, unknown> | undefined;
+
+      if (retoolForm.extraCookiesJson.trim()) {
+        extraCookies = JSON.parse(retoolForm.extraCookiesJson);
+      }
+      if (retoolForm.notesJson.trim()) {
+        notes = JSON.parse(retoolForm.notesJson);
+      }
+
+      const payload: RetoolWorkspaceUpsertRequest = {
+        workspaceId: retoolForm.workspaceId.trim(),
+        email: retoolForm.email.trim(),
+        password: retoolForm.password.trim(),
+        mailProvider: retoolForm.mailProvider.trim(),
+        mailAccountId: retoolForm.mailAccountId.trim(),
+        baseUrl: retoolForm.baseUrl.trim(),
+        subdomain: retoolForm.subdomain.trim(),
+        accessToken: retoolForm.accessToken.trim(),
+        xsrfToken: retoolForm.xsrfToken.trim(),
+        extraCookies,
+        openaiResourceUuid: retoolForm.openaiResourceUuid.trim(),
+        openaiResourceName: retoolForm.openaiResourceName.trim(),
+        anthropicResourceUuid: retoolForm.anthropicResourceUuid.trim(),
+        anthropicResourceName: retoolForm.anthropicResourceName.trim(),
+        workflowId: retoolForm.workflowId.trim(),
+        workflowApiKey: retoolForm.workflowApiKey.trim(),
+        agentId: retoolForm.agentId.trim(),
+        status: retoolForm.status.trim(),
+        verifyStatus: retoolForm.verifyStatus.trim(),
+        notes,
+      };
+
+      const response = await upsertRetoolWorkspace(payload);
+      const verifyResult = await verifyRetoolWorkspace(payload.workspaceId);
+      setStatusMessage(
+        `Retool workspace 已更新并完成校验：${response.workspace.baseUrl || response.workspace.workspaceId} (${verifyResult.verifyStatus})`,
+      );
+      setShowRetoolForm(false);
+      setRetoolFormMode('create');
+      setRetoolEditingWorkspaceId(null);
+      setRetoolForm(createDefaultRetoolForm());
+      await loadRetoolWorkspaces();
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        setError('extraCookies / notes 必须是合法 JSON 对象');
+      } else {
+        setError(err instanceof Error ? err.message : '更新 Retool workspace 失败');
+      }
+    } finally {
+      setRetoolSaving(false);
+    }
+  };
+
+  const renderRetoolWorkspaceRow = (item: RetoolWorkspaceListItem, index: number) => {
+    const workspace: RetoolWorkspaceInfo = item.metadata;
+    const workspaceId = workspace.workspaceId || item.id;
+    const workspaceUrl = workspace.baseUrl || `https://${workspace.subdomain}`;
+    const verifyOk = workspace.verifyStatus === 'passed' || workspace.verifyStatus === 'ready';
+    const inUseCount = workspace.inUseCount || 0;
+    const poolStatus = workspace.status === 'disabled'
+      ? '已禁用'
+      : inUseCount > 0
+        ? '使用中'
+        : '空闲';
+    const poolStatusClass = workspace.status === 'disabled'
+      ? 'inactive'
+      : inUseCount > 0
+        ? 'active'
+        : 'idle';
+    return (
+      <tr key={`${workspaceId}-${index}`}>
+        <td>
+          <span className="resource-type-badge retool">Retool Workspace</span>
+        </td>
+        <td>
+          <div className="resource-main">retoolapi</div>
+          <div className="resource-sub">{workspace.mailProvider || '-'}</div>
+        </td>
+        <td>
+          <div className="resource-main">{workspace.subdomain || workspaceId || '-'}</div>
+          <div className="resource-sub">{workspace.email || '-'}</div>
+        </td>
+        <td>
+          <div className="resource-main">{workspaceUrl}</div>
+          <div className="resource-sub">Password: {workspace.password || '-'}</div>
+          <div className="resource-sub">AccessToken: {workspace.accessToken || '-'}</div>
+          <div className="resource-sub">XSRF Token: {workspace.xsrfToken || '-'}</div>
+          <div className="resource-sub">
+            Workflow: {workspace.workflowId || '-'}
+          </div>
+          <div className="resource-sub">
+            Agent: {workspace.agentId || '-'}
+          </div>
+          <div className="resource-sub">
+            最近使用: {formatDateTime(workspace.lastUsedAt)}
+          </div>
+          <div className="resource-sub">
+            inUseCount: {inUseCount}
+          </div>
+        </td>
+        <td>
+          <span className={`status-badge ${workspace.status === 'ready' ? 'active' : 'inactive'}`}>
+            {workspace.status || item.status || '-'}
+          </span>
+          <span className={`status-badge ${verifyOk ? 'active' : 'inactive'}`} style={{ marginLeft: '0.5rem' }}>
+            {workspace.verifyStatus || '-'}
+          </span>
+          <span className={`status-badge ${poolStatusClass}`} style={{ marginLeft: '0.5rem' }}>
+            {poolStatus}
+          </span>
+        </td>
+        <td>{workspace.createdAt || '-'}</td>
+        <td>
+          <button
+            className="btn-secondary btn-small"
+            onClick={() => handleVerifyRetoolWorkspace(workspaceId)}
+            disabled={retoolVerifyingId === workspaceId}
+            style={{ marginRight: '5px' }}
+          >
+            {retoolVerifyingId === workspaceId ? '校验中...' : '校验'}
+          </button>
+          <button
+            className="btn-secondary btn-small"
+            onClick={() => handleEditRetoolWorkspace(item)}
+            disabled={retoolSaving || retoolVerifyingId === workspaceId}
+            style={{ marginRight: '5px' }}
+          >
+            编辑
+          </button>
+          {workspace.status === 'disabled' ? (
+            <button
+              className="btn-primary btn-small"
+              onClick={() => handleToggleRetoolWorkspace(workspaceId, true)}
+              disabled={retoolVerifyingId === workspaceId}
+              style={{ marginRight: '5px' }}
+            >
+              {retoolVerifyingId === workspaceId ? '处理中...' : '启用'}
+            </button>
+          ) : (
+            <button
+              className="btn-danger btn-small"
+              onClick={() => handleToggleRetoolWorkspace(workspaceId, false)}
+              disabled={retoolVerifyingId === workspaceId}
+              style={{ marginRight: '5px' }}
+            >
+              {retoolVerifyingId === workspaceId ? '处理中...' : '禁用'}
+            </button>
+          )}
+          <button
+            className="btn-secondary btn-small"
+            onClick={() => window.open(workspaceUrl, '_blank')}
+            style={{ marginRight: '5px' }}
+          >
+            打开
+          </button>
+          <button
+            className="btn-danger btn-small"
+            onClick={() => handleDeleteRetoolWorkspace(workspaceId)}
+            disabled={retoolVerifyingId === workspaceId}
+          >
+            {retoolVerifyingId === workspaceId ? '处理中...' : '删除'}
+          </button>
+        </td>
+      </tr>
+    );
+  };
+
+  const renderTraditionalAccountRow = (account: AccountInfo, index: number) => {
+    const quota = account.apiName === 'nexosapi' ? nexosQuotaMap[buildQuotaKey(account)] : undefined;
+    return (
+      <tr key={`${account.apiName}-${account.userName}-${index}`}>
+        <td>
+          <span className="resource-type-badge classic">传统账号</span>
+        </td>
+        <td>
+          <div className="resource-main">{account.apiName}</div>
+          <div className="resource-sub">{getAccountTypeLabel(account.accountType)}</div>
+        </td>
+        <td>
+          <div className="resource-main">{account.userName}</div>
+          <div className="resource-sub">
+            {isNexosAccount(account.apiName) ? getDisplayedNexosEmail(account, nexosQuotaMap) : '-'}
+          </div>
+        </td>
+        <td>
+          <div className="resource-main">
+            {account.authToken ? `${account.authToken.substring(0, 10)}...` : '无 authToken'}
+          </div>
+          <div className="resource-sub">personId: {account.personId || '-'}</div>
+          <div className="resource-sub">useCount: {account.useCount || 0}</div>
+          {account.apiName === 'nexosapi' && (
+            <div className="resource-sub">
+              Nexos额度: {getNexosQuotaDisplayText(account, quota)}
+            </div>
+          )}
+        </td>
+        <td>
+          <span className={`status-badge ${account.tokenStatus ? 'active' : 'inactive'}`}>
+            {account.tokenStatus ? 'token 有效' : 'token 无效'}
+          </span>
+          <span className={`status-badge ${account.accountStatus ? 'active' : 'inactive'}`} style={{ marginLeft: '0.5rem' }}>
+            {account.accountStatus ? '账号启用' : '账号禁用'}
+          </span>
+        </td>
+        <td>{account.createTime ? new Date(account.createTime).toLocaleString('zh-CN') : '-'}</td>
+        <td>
+          <button
+            className="btn-secondary btn-small"
+            onClick={() => handleEdit(account)}
+            disabled={loading}
+            style={{ marginRight: '5px' }}
+          >
+            编辑
+          </button>
+          {account.apiName === 'nexosapi' && (
+            <button
+              type="button"
+              className="btn-secondary btn-small"
+              onClick={() => setSelectedQuotaAccount(account)}
+              style={{ marginRight: '5px' }}
+            >
+              额度
+            </button>
+          )}
+          <button
+            className="btn-danger btn-small"
+            onClick={() => handleDelete(account.apiName, account.userName)}
+            disabled={loading}
+          >
+            删除
+          </button>
+        </td>
+      </tr>
+    );
+  };
+
+  const totalResources = retoolWorkspaces.length + accounts.length;
+  const retoolPoolStats = React.useMemo(() => {
+    if (retoolPoolStatus) {
+      return {
+        total: retoolPoolStatus.total || 0,
+        idle: retoolPoolStatus.idle || 0,
+        inUse: retoolPoolStatus.inUse || 0,
+        disabled: retoolPoolStatus.disabled || 0,
+        latestUsedAt: retoolPoolStatus.latestUsedAt || '',
+        consecutiveFailures: retoolPoolStatus.consecutiveFailures || 0,
+        lastFailureAt: retoolPoolStatus.lastFailureAt || '',
+        lastFailureReason: retoolPoolStatus.lastFailureReason || '',
+        cooldownUntil: retoolPoolStatus.cooldownUntil || '',
+      };
+    }
+    const total = retoolWorkspaces.length;
+    let idle = 0;
+    let inUse = 0;
+    let disabled = 0;
+    let latestUsedAt = '';
+    for (const item of retoolWorkspaces) {
+      const workspace = item.metadata;
+      const currentLastUsedAt = workspace.lastUsedAt || '';
+      if (workspace.status === 'disabled') {
+        disabled += 1;
+      } else if ((workspace.inUseCount || 0) > 0) {
+        inUse += 1;
+      } else {
+        idle += 1;
+      }
+      if (currentLastUsedAt && (!latestUsedAt || currentLastUsedAt > latestUsedAt)) {
+        latestUsedAt = currentLastUsedAt;
+      }
+    }
+    return {
+      total,
+      idle,
+      inUse,
+      disabled,
+      latestUsedAt,
+      consecutiveFailures: 0,
+      lastFailureAt: '',
+      lastFailureReason: '',
+      cooldownUntil: '',
+    };
+  }, [retoolWorkspaces, retoolPoolStatus]);
+
   return (
     <div className="account-manager">
       <div className="header">
@@ -432,12 +933,12 @@ const AccountManager: React.FC = () => {
                   className="register-channel-select"
                   value={selectedAutoRegisterApi}
                   onChange={(e) => setSelectedAutoRegisterApi(e.target.value)}
-                  disabled={autoRegistering || channels.length === 0}
+                  disabled={autoRegistering || autoRegisterChannels.length === 0}
                 >
-                  {channels.length === 0 ? (
+                  {autoRegisterChannels.length === 0 ? (
                     <option value="">暂无可选渠道</option>
                   ) : (
-                    channels.map((channel) => (
+                    autoRegisterChannels.map((channel) => (
                       <option key={channel.id} value={channel.channelname}>
                         {channel.channelname}
                       </option>
@@ -456,7 +957,7 @@ const AccountManager: React.FC = () => {
                 <button
                   className="btn-register"
                   onClick={handleAutoRegister}
-                  disabled={autoRegistering || loading || channels.length === 0 || !selectedAutoRegisterApi}
+                  disabled={autoRegistering || loading || autoRegisterChannels.length === 0 || !selectedAutoRegisterApi}
                 >
                   {autoRegistering ? '⏳ 注册中...' : '✅ 确认注册'}
                 </button>
@@ -478,6 +979,24 @@ const AccountManager: React.FC = () => {
               </button>
             )}
           </div>
+
+          <button
+            className="btn-register"
+            onClick={() => {
+              if (showRetoolForm && retoolFormMode === 'create') {
+                setShowRetoolForm(false);
+                setRetoolForm(createDefaultRetoolForm());
+              } else {
+                setRetoolFormMode('create');
+                setRetoolEditingWorkspaceId(null);
+                setRetoolForm(createDefaultRetoolForm());
+                setShowRetoolForm(true);
+              }
+            }}
+            disabled={loading || retoolCreating}
+          >
+            {showRetoolForm && retoolFormMode === 'create' ? '取消 Retool 创建' : '🚀 创建 Retool Workspace'}
+          </button>
 
           <button
             className="btn-primary"
@@ -525,7 +1044,7 @@ const AccountManager: React.FC = () => {
                 disabled={isEditing}
               >
                 <option value="">选择一个渠道</option>
-                {channels.map((channel) => (
+                {manualAccountChannels.map((channel) => (
                   <option key={channel.id} value={channel.channelname}>
                     {channel.channelname}
                   </option>
@@ -681,120 +1200,331 @@ const AccountManager: React.FC = () => {
         </form>
       )}
 
+      {showRetoolForm && (
+        <div
+          className="dialog-overlay"
+          onClick={() => {
+            if (retoolCreating || retoolSaving) return;
+            setShowRetoolForm(false);
+            setRetoolFormMode('create');
+            setRetoolEditingWorkspaceId(null);
+            setRetoolForm(createDefaultRetoolForm());
+          }}
+        >
+          <div className="dialog retool-workspace-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="dialog-header">
+              <h3>{retoolFormMode === 'create' ? '创建 Retool Workspace' : `编辑 Retool Workspace${retoolEditingWorkspaceId ? `：${retoolEditingWorkspaceId}` : ''}`}</h3>
+              <button
+                className="dialog-close"
+                onClick={() => {
+                  if (retoolCreating || retoolSaving) return;
+                  setShowRetoolForm(false);
+                  setRetoolFormMode('create');
+                  setRetoolEditingWorkspaceId(null);
+                  setRetoolForm(createDefaultRetoolForm());
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div className="dialog-content">
+              <div className="form-row">
+                {retoolFormMode === 'create' ? (
+                  <>
+                    <div className="form-group">
+                      <label>Full Name</label>
+                      <input
+                        type="text"
+                        value={retoolForm.fullName}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, fullName: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Password</label>
+                      <input
+                        type="text"
+                        value={retoolForm.password}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, password: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Workspace Prefix</label>
+                      <input
+                        type="text"
+                        value={retoolForm.workspacePrefix}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, workspacePrefix: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Mail Providers</label>
+                      <input
+                        type="text"
+                        value={retoolForm.mailProviders}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, mailProviders: e.target.value })}
+                        placeholder="gptmail,duckmail"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="form-group">
+                      <label>Workspace ID</label>
+                      <input
+                        type="text"
+                        value={retoolForm.workspaceId}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, workspaceId: e.target.value })}
+                        disabled
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Email</label>
+                      <input
+                        type="text"
+                        value={retoolForm.email}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, email: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Base URL</label>
+                      <input
+                        type="text"
+                        value={retoolForm.baseUrl}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, baseUrl: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Subdomain</label>
+                      <input
+                        type="text"
+                        value={retoolForm.subdomain}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, subdomain: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Password（留空保持不变）</label>
+                      <input
+                        type="text"
+                        value={retoolForm.password}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, password: e.target.value })}
+                        placeholder="留空则保持原值"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Mail Provider</label>
+                      <input
+                        type="text"
+                        value={retoolForm.mailProvider}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, mailProvider: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Mail Account ID</label>
+                      <input
+                        type="text"
+                        value={retoolForm.mailAccountId}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, mailAccountId: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Access Token（留空保持不变）</label>
+                      <input
+                        type="text"
+                        value={retoolForm.accessToken}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, accessToken: e.target.value })}
+                        placeholder="留空则保持原值"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>XSRF Token（留空保持不变）</label>
+                      <input
+                        type="text"
+                        value={retoolForm.xsrfToken}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, xsrfToken: e.target.value })}
+                        placeholder="留空则保持原值"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>OpenAI Resource UUID</label>
+                      <input
+                        type="text"
+                        value={retoolForm.openaiResourceUuid}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, openaiResourceUuid: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>OpenAI Resource Name</label>
+                      <input
+                        type="text"
+                        value={retoolForm.openaiResourceName}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, openaiResourceName: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Anthropic Resource UUID</label>
+                      <input
+                        type="text"
+                        value={retoolForm.anthropicResourceUuid}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, anthropicResourceUuid: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Anthropic Resource Name</label>
+                      <input
+                        type="text"
+                        value={retoolForm.anthropicResourceName}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, anthropicResourceName: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Workflow ID</label>
+                      <input
+                        type="text"
+                        value={retoolForm.workflowId}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, workflowId: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Workflow API Key</label>
+                      <input
+                        type="text"
+                        value={retoolForm.workflowApiKey}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, workflowApiKey: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Agent ID</label>
+                      <input
+                        type="text"
+                        value={retoolForm.agentId}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, agentId: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Status</label>
+                      <input
+                        type="text"
+                        value={retoolForm.status}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, status: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Verify Status</label>
+                      <input
+                        type="text"
+                        value={retoolForm.verifyStatus}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, verifyStatus: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group form-group-full">
+                      <label>Extra Cookies JSON</label>
+                      <textarea
+                        value={retoolForm.extraCookiesJson}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, extraCookiesJson: e.target.value })}
+                        rows={6}
+                      />
+                    </div>
+                    <div className="form-group form-group-full">
+                      <label>Notes JSON</label>
+                      <textarea
+                        value={retoolForm.notesJson}
+                        onChange={(e) => setRetoolForm({ ...retoolForm, notesJson: e.target.value })}
+                        rows={6}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="dialog-footer">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={retoolFormMode === 'create' ? handleCreateRetoolWorkspace : handleSaveRetoolWorkspace}
+                disabled={retoolCreating || retoolSaving}
+              >
+                {retoolFormMode === 'create'
+                  ? (retoolCreating ? '创建中...' : '开始创建')
+                  : (retoolSaving ? '保存中...' : '保存修改')}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setShowRetoolForm(false);
+                  setRetoolFormMode('create');
+                  setRetoolEditingWorkspaceId(null);
+                  setRetoolForm(createDefaultRetoolForm());
+                }}
+                disabled={retoolCreating || retoolSaving}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="retool-pool-panel">
+        <div className="retool-pool-card">
+          <div className="retool-pool-label">Retool 资源总数</div>
+          <div className="retool-pool-value">{retoolPoolStats.total}</div>
+        </div>
+        <div className="retool-pool-card">
+          <div className="retool-pool-label">空闲</div>
+          <div className="retool-pool-value idle">{retoolPoolStats.idle}</div>
+        </div>
+        <div className="retool-pool-card">
+          <div className="retool-pool-label">使用中</div>
+          <div className="retool-pool-value active">{retoolPoolStats.inUse}</div>
+        </div>
+        <div className="retool-pool-card">
+          <div className="retool-pool-label">已禁用</div>
+          <div className="retool-pool-value inactive">{retoolPoolStats.disabled}</div>
+        </div>
+        <div className="retool-pool-card wide">
+          <div className="retool-pool-label">最近使用时间</div>
+          <div className="retool-pool-value text">{formatDateTime(retoolPoolStats.latestUsedAt)}</div>
+        </div>
+        <div className="retool-pool-card wide">
+          <div className="retool-pool-label">连续失败次数</div>
+          <div className="retool-pool-value text">{retoolPoolStats.consecutiveFailures}</div>
+          <div className="retool-pool-sub">最近失败：{formatDateTime(retoolPoolStats.lastFailureAt)}</div>
+          <div className="retool-pool-sub">冷却截止：{formatDateTime(retoolPoolStats.cooldownUntil)}</div>
+        </div>
+        <div className="retool-pool-card wide">
+          <div className="retool-pool-label">最近失败原因</div>
+          <div className="retool-pool-value text">{retoolPoolStats.lastFailureReason || '-'}</div>
+        </div>
+      </div>
+
       <div className="accounts-table-container">
-        <h3>账号列表 ({accounts.length})</h3>
+        <h3>账号资源列表 ({totalResources})</h3>
         
         {loading && !showAddForm ? (
           <div className="loading">加载中...</div>
-        ) : accounts.length === 0 ? (
-          <div className="empty-state">暂无账号数据</div>
+        ) : totalResources === 0 ? (
+          <div className="empty-state">暂无账号资源数据</div>
         ) : (
           <div className="table-wrapper">
             <table className="accounts-table">
               <thead>
                 <tr>
-                  <th>apiName</th>
-                  <th>userName</th>
-                  <th>登录邮箱</th>
-                  <th>password</th>
-                  <th>authToken</th>
-                  <th>userTobitId</th>
-                  <th>personId</th>
-                  <th>useCount</th>
-                  <th>tokenStatus</th>
-                  <th>accountStatus</th>
-                  <th>accountType</th>
-                  <th>Nexos额度</th>
+                  <th>资源类型</th>
+                  <th>渠道</th>
+                  <th>标识</th>
+                  <th>资源信息</th>
+                  <th>状态</th>
                   <th>createTime</th>
                   <th>actions</th>
                 </tr>
               </thead>
               <tbody>
-                {accounts.map((account, index) => (
-                  <tr key={`${account.apiName}-${account.userName}-${index}`}>
-                    <td>{account.apiName}</td>
-                    <td>{account.userName}</td>
-                    <td>{isNexosAccount(account.apiName) ? getDisplayedNexosEmail(account, nexosQuotaMap) : '-'}</td>
-                    <td>
-                      <span className="password-mask">{'*'.repeat(8)}</span>
-                    </td>
-                    <td>
-                      {account.authToken ? (
-                        <span className="token-preview" title={account.authToken}>
-                          {account.authToken.substring(0, 10)}...
-                        </span>
-                      ) : (
-                        <span className="empty">-</span>
-                      )}
-                    </td>
-                    <td>{account.userTobitId || '-'}</td>
-                    <td>{account.personId || '-'}</td>
-                    <td>{account.useCount || 0}</td>
-                    <td>
-                      <span className={`status-badge ${account.tokenStatus ? 'active' : 'inactive'}`}>
-                        {account.tokenStatus ? '✓ 有效' : '✗ 无效'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-badge ${account.accountStatus ? 'active' : 'inactive'}`}>
-                        {account.accountStatus ? '✓ 启用' : '✗ 禁用'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-badge ${getAccountTypeBadgeClass(account.accountType)}`}>
-                        {getAccountTypeLabel(account.accountType)}
-                      </span>
-                    </td>
-                    <td>
-                      {account.apiName === 'nexosapi' ? (
-                        (() => {
-                          const quota = nexosQuotaMap[buildQuotaKey(account)];
-                          return (
-                            <button
-                              type="button"
-                              className="btn-secondary btn-small quota-detail-btn"
-                              onClick={() => setSelectedQuotaAccount(account)}
-                              disabled={!quota}
-                              title={quota?.available
-                                ? `已用额度: ${formatNumber(quota.quota?.budget_used_raw ?? quota.quota?.budget_used)}`
-                                : (quota?.error || '暂无额度信息')}
-                            >
-                              {getNexosQuotaDisplayText(account, quota)}
-                            </button>
-                          );
-                        })()
-                      ) : (
-                        <span className="empty">-</span>
-                      )}
-                    </td>
-                    <td>
-                      {account.createTime ? (
-                        <span className="createtime">
-                          {new Date(account.createTime).toLocaleString('zh-CN')}
-                        </span>
-                      ) : (
-                        <span className="empty">-</span>
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        className="btn-secondary btn-small"
-                        onClick={() => handleEdit(account)}
-                        disabled={loading}
-                        style={{ marginRight: '5px' }}
-                      >
-                        编辑
-                      </button>
-                      <button
-                        className="btn-danger btn-small"
-                        onClick={() => handleDelete(account.apiName, account.userName)}
-                        disabled={loading}
-                      >
-                        删除
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {retoolWorkspaces.map(renderRetoolWorkspaceRow)}
+                {accounts.map(renderTraditionalAccountRow)}
               </tbody>
             </table>
           </div>
