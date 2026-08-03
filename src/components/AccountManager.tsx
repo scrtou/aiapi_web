@@ -714,15 +714,7 @@ const AccountManager: React.FC = () => {
         </td>
         <td>
           <div className="resource-main">{workspaceUrl}</div>
-          <div className="resource-sub">Password: {workspace.password || '-'}</div>
-          <div className="resource-sub">AccessToken: {workspace.accessToken || '-'}</div>
-          <div className="resource-sub">XSRF Token: {workspace.xsrfToken || '-'}</div>
-          <div className="resource-sub">
-            Workflow: {workspace.workflowId || '-'}
-          </div>
-          <div className="resource-sub">
-            Agent: {workspace.agentId || '-'}
-          </div>
+          <div className="resource-sub">敏感信息请点击“编辑”查看</div>
           <div className="resource-sub">
             最近使用: {formatDateTime(workspace.lastUsedAt)}
           </div>

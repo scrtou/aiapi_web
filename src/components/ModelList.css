@@ -168,12 +168,57 @@
   font-size: 0.875rem;
 }
 
+.channel-access-summary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.channel-access-summary.free {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.channel-access-summary.pro {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
 .channel-model-arrow {
   font-size: 1rem;
 }
 
 .channel-model-body {
   padding: 1.25rem;
+}
+
+.model-access-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.model-access-filters button {
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: 9999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.model-access-filters button:hover,
+.model-access-filters button.active {
+  border-color: var(--primary-color);
+  background-color: var(--primary-light);
+  color: var(--primary-color);
 }
 
 /* 模型卡片 */
@@ -226,6 +271,33 @@
   font-weight: 600;
   white-space: nowrap;
   text-transform: uppercase;
+}
+
+.model-badges {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.model-access-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.model-access-badge.free {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.model-access-badge.pro {
+  background-color: #fef3c7;
+  color: #92400e;
 }
 
 .model-description {
@@ -439,6 +511,12 @@
 
   .model-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .channel-model-meta {
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 0.35rem;
   }
 }
 

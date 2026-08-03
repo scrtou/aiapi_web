@@ -161,12 +161,16 @@ export interface RetoolWorkspacePoolStatus {
   channel?: ChannelInfo;
 }
 
+export type ModelAccessTier = 'free' | 'pro' | 'unknown';
+
 // 模型信息接口
 export interface Model {
   id: string;
   name: string;
   provider?: string;
   description?: string;
+  requiresPro?: boolean;
+  accessTier?: ModelAccessTier;
   contextLength?: number;
   pricing?: {
     input: number;

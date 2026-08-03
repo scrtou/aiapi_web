@@ -3,11 +3,38 @@ import { ChannelInfo, Model } from '../types';
 import api from '../services/api';
 import './ModelList.css';
 
+type AccessFilter = 'all' | 'free' | 'pro';
+
+type RawChaynsMetadata = {
+  requires_sidekick_pro?: boolean;
+  [key: string]: unknown;
+};
+
+type RawModel = {
+  id?: string;
+  owned_by?: string;
+  description?: string;
+  created?: number;
+  object?: string;
+  x_chayns?: RawChaynsMetadata;
+  [key: string]: unknown;
+};
+
+type ModelListResponse = {
+  data?: RawModel[];
+  [key: string]: unknown;
+};
+
+type SelectedModel = RawModel & {
+  __channelName: string;
+  __parsedModel: Model;
+};
+
 type ChannelModelState = {
   loading: boolean;
   loaded: boolean;
   error: string | null;
-  raw: any;
+  raw: ModelListResponse | null;
   models: Model[];
 };
 
@@ -25,7 +52,8 @@ const ModelList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set());
   const [channelModels, setChannelModels] = useState<Record<string, ChannelModelState>>({});
-  const [selectedModel, setSelectedModel] = useState<any>(null);
+  const [selectedModel, setSelectedModel] = useState<SelectedModel | null>(null);
+  const [chaynsAccessFilter, setChaynsAccessFilter] = useState<AccessFilter>('all');
 
   const loadChannels = async () => {
     setChannelsLoading(true);
@@ -45,14 +73,31 @@ const ModelList: React.FC = () => {
     loadChannels();
   }, []);
 
-  const parseModels = (responseData: any): Model[] => {
-    if (!responseData?.data || !Array.isArray(responseData.data)) return [];
-    return responseData.data.map((model: any) => ({
-      id: model.id,
-      name: model.id,
-      provider: model.owned_by || 'unknown',
-      description: model.description || '',
-    }));
+  const parseModels = (channelName: string, responseData: unknown): Model[] => {
+    if (!responseData || typeof responseData !== 'object') return [];
+
+    const data = (responseData as ModelListResponse).data;
+    if (!Array.isArray(data)) return [];
+
+    return data
+      .filter((model): model is RawModel & { id: string } =>
+        typeof model.id === 'string' && model.id.length > 0,
+      )
+      .map((model) => {
+        const isChaynsModel = channelName === 'chaynsapi';
+        const requiresPro = isChaynsModel
+          ? model.x_chayns?.requires_sidekick_pro === true
+          : undefined;
+
+        return {
+          id: model.id,
+          name: model.id,
+          provider: model.owned_by || 'unknown',
+          description: model.description || '',
+          requiresPro,
+          accessTier: isChaynsModel ? (requiresPro ? 'pro' : 'free') : 'unknown',
+        };
+      });
   };
 
   const loadModelsForChannel = async (channelName: string) => {
@@ -67,14 +112,15 @@ const ModelList: React.FC = () => {
 
     try {
       const response = await api.get(`/${channelName}/v1/models`);
-      const models = parseModels(response.data);
+      const raw = response.data as ModelListResponse;
+      const models = parseModels(channelName, raw);
       setChannelModels((prev) => ({
         ...prev,
         [channelName]: {
           loading: false,
           loaded: true,
           error: null,
-          raw: response.data,
+          raw,
           models,
         },
       }));
@@ -111,9 +157,9 @@ const ModelList: React.FC = () => {
   };
 
   const handleModelClick = (channelName: string, model: Model) => {
-    const rawModel = channelModels[channelName]?.raw?.data?.find((item: any) => item.id === model.id);
+    const rawModel = channelModels[channelName]?.raw?.data?.find((item) => item.id === model.id);
     setSelectedModel({
-      ...rawModel,
+      ...(rawModel || {}),
       __channelName: channelName,
       __parsedModel: model,
     });
@@ -164,6 +210,21 @@ const ModelList: React.FC = () => {
             {channels.map((channel) => {
               const state = channelModels[channel.channelname] || emptyChannelState;
               const expanded = expandedChannels.has(channel.channelname);
+              const isChayns = channel.channelname === 'chaynsapi';
+              const proCount = isChayns
+                ? state.models.filter((model) => model.requiresPro === true).length
+                : 0;
+              const freeCount = isChayns
+                ? state.models.filter((model) => model.requiresPro === false).length
+                : 0;
+              const visibleModels = !isChayns || chaynsAccessFilter === 'all'
+                ? state.models
+                : state.models.filter((model) =>
+                    chaynsAccessFilter === 'pro'
+                      ? model.requiresPro === true
+                      : model.requiresPro === false,
+                  );
+
               return (
                 <div key={channel.id} className="channel-model-card">
                   <button
@@ -177,7 +238,15 @@ const ModelList: React.FC = () => {
                     </div>
                     <div className="channel-model-meta">
                       {state.loaded && !state.error && (
-                        <span className="channel-model-count">{state.models.length} 个模型</span>
+                        <>
+                          <span className="channel-model-count">{state.models.length} 个模型</span>
+                          {isChayns && (
+                            <>
+                              <span className="channel-access-summary free">Free {freeCount}</span>
+                              <span className="channel-access-summary pro">Pro {proCount}</span>
+                            </>
+                          )}
+                        </>
                       )}
                       <span className="channel-model-arrow">{expanded ? '▾' : '▸'}</span>
                     </div>
@@ -192,30 +261,69 @@ const ModelList: React.FC = () => {
                       ) : state.models.length === 0 ? (
                         <div className="empty-state">暂无可用模型</div>
                       ) : (
-                        <div className="models-grid">
-                          {state.models.map((model) => (
-                            <div
-                              key={`${channel.channelname}-${model.id}`}
-                              className="model-card clickable"
-                              onClick={() => handleModelClick(channel.channelname, model)}
-                            >
-                              <div className="model-header">
-                                <h3 className="model-name">{model.name}</h3>
-                                <span className="model-provider">{model.provider}</span>
-                              </div>
-
-                              {model.description && (
-                                <p className="model-description">{model.description}</p>
-                              )}
-
-                              <div className="model-footer">
-                                <span className="model-id" title={model.id}>
-                                  ID: {model.id}
-                                </span>
-                              </div>
+                        <>
+                          {isChayns && (
+                            <div className="model-access-filters" aria-label="chaynsapi 模型权限筛选">
+                              <button
+                                type="button"
+                                className={chaynsAccessFilter === 'all' ? 'active' : ''}
+                                onClick={() => setChaynsAccessFilter('all')}
+                              >
+                                全部 {state.models.length}
+                              </button>
+                              <button
+                                type="button"
+                                className={chaynsAccessFilter === 'free' ? 'active' : ''}
+                                onClick={() => setChaynsAccessFilter('free')}
+                              >
+                                Free 可用 {freeCount}
+                              </button>
+                              <button
+                                type="button"
+                                className={chaynsAccessFilter === 'pro' ? 'active' : ''}
+                                onClick={() => setChaynsAccessFilter('pro')}
+                              >
+                                Pro 专属 {proCount}
+                              </button>
                             </div>
-                          ))}
-                        </div>
+                          )}
+
+                          {visibleModels.length === 0 ? (
+                            <div className="empty-state">当前筛选条件下没有模型</div>
+                          ) : (
+                            <div className="models-grid">
+                              {visibleModels.map((model) => (
+                                <div
+                                  key={`${channel.channelname}-${model.id}`}
+                                  className="model-card clickable"
+                                  onClick={() => handleModelClick(channel.channelname, model)}
+                                >
+                                  <div className="model-header">
+                                    <h3 className="model-name">{model.name}</h3>
+                                    <div className="model-badges">
+                                      <span className="model-provider">{model.provider}</span>
+                                      {isChayns && (
+                                        <span className={`model-access-badge ${model.requiresPro ? 'pro' : 'free'}`}>
+                                          {model.requiresPro ? 'Pro 专属' : 'Free 可用'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {model.description && (
+                                    <p className="model-description">{model.description}</p>
+                                  )}
+
+                                  <div className="model-footer">
+                                    <span className="model-id" title={model.id}>
+                                      ID: {model.id}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
@@ -251,6 +359,16 @@ const ModelList: React.FC = () => {
                     <span className="detail-label">所有者:</span>
                     <span className="detail-value">{selectedModel.owned_by || selectedModel.__parsedModel?.provider || 'N/A'}</span>
                   </div>
+                  {selectedModel.__channelName === 'chaynsapi' && (
+                    <div className="detail-item">
+                      <span className="detail-label">账号要求:</span>
+                      <span className="detail-value">
+                        {selectedModel.x_chayns?.requires_sidekick_pro === true
+                          ? '需要 Pro 账号'
+                          : 'Free 账号可用'}
+                      </span>
+                    </div>
+                  )}
                   {selectedModel.created && (
                     <div className="detail-item">
                       <span className="detail-label">创建时间:</span>
