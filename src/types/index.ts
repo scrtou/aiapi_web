@@ -11,6 +11,7 @@ export interface AccountInfo {
   accountStatus?: boolean;
   createTime?: string;
   accountType?: string;
+  workspaceUacId?: number;
   status?: string;
 }
 
@@ -26,6 +27,7 @@ export interface AccountRequest {
   tokenStatus?: boolean;
   accountStatus?: boolean;
   accountType?: string;
+  workspaceUacId?: number;
 }
 
 // 账号操作响应
@@ -69,6 +71,7 @@ export interface AccountAutomationSettings {
   autoDeleteEnabled: boolean;
   deleteAfterDays: number;
   autoRegisterEnabled: boolean;
+  namespaceToolBridgeEnabled: boolean;
 }
 
 export interface RetoolWorkspaceInfo {

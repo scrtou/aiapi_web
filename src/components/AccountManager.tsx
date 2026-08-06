@@ -90,6 +90,7 @@ const normalizeAccount = (raw: AccountInfo): AccountInfo => ({
   accountStatus: toBoolean(raw.accountStatus, false),
   createTime: raw.createTime ?? '',
   accountType: normalizeAccountType(raw.accountType),
+  workspaceUacId: toNumber(raw.workspaceUacId, 0),
   status: raw.status ?? 'active',
 });
 
@@ -175,6 +176,8 @@ const buildQuotaKey = (account: Pick<AccountInfo, 'apiName' | 'userName'>): stri
   `${account.apiName}:${account.userName}`;
 
 const isNexosAccount = (apiName?: string): boolean => apiName === 'nexosapi';
+const isChaynsProAccount = (apiName?: string, accountType?: string): boolean =>
+  apiName === 'chaynsapi' && accountType === 'pro';
 const isTemporaryPlaceholderAccount = (account: AccountInfo): boolean =>
   account.status === 'waiting' || account.status === 'registering';
 
@@ -191,6 +194,20 @@ const getDisplayedNexosEmail = (
   }
   return '-';
 };
+
+const createDefaultAccountForm = (): AccountRequest => ({
+  apiName: '',
+  userName: '',
+  password: '',
+  authToken: '',
+  userTobitId: undefined,
+  personId: '',
+  useCount: 0,
+  tokenStatus: true,
+  accountStatus: true,
+  accountType: 'free',
+  workspaceUacId: 0,
+});
 
 const AccountManager: React.FC = () => {
   const [accounts, setAccounts] = useState<AccountInfo[]>([]);
@@ -219,18 +236,7 @@ const AccountManager: React.FC = () => {
   const [retoolForm, setRetoolForm] = useState<RetoolFormState>(createDefaultRetoolForm());
   
   // 表单数据
-  const [formData, setFormData] = useState<AccountRequest>({
-    apiName: '',
-    userName: '',
-    password: '',
-    authToken: '',
-    userTobitId: undefined,
-    personId: '',
-    useCount: 0,
-    tokenStatus: true,
-    accountStatus: true,
-    accountType: 'free',
-  });
+  const [formData, setFormData] = useState<AccountRequest>(createDefaultAccountForm());
 
   const editingAccountForDisplay = accounts.find(
     (account) => account.apiName === formData.apiName && account.userName === formData.userName,
@@ -336,8 +342,16 @@ const AccountManager: React.FC = () => {
   // 处理表单提交
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+
+    const chaynsPro = isChaynsProAccount(formData.apiName, formData.accountType);
+    const workspaceUacId = Number(formData.workspaceUacId || 0);
+    if (chaynsPro && (!Number.isInteger(workspaceUacId) || workspaceUacId <= 0)) {
+      setError('Chayns Pro 账号必须配置正整数 workspaceUacId');
+      return;
+    }
+
+    setLoading(true);
 
     try {
       // 清理空值
@@ -361,32 +375,20 @@ const AccountManager: React.FC = () => {
       if (formData.tokenStatus !== undefined) cleanedData.tokenStatus = formData.tokenStatus;
       if (formData.accountStatus !== undefined) cleanedData.accountStatus = formData.accountStatus;
       if (formData.accountType) cleanedData.accountType = formData.accountType;
+      cleanedData.workspaceUacId = chaynsPro ? workspaceUacId : 0;
 
       const endpoint = isEditing ? '/aichat/account/update' : '/aichat/account/add';
       const response = await api.post(endpoint, [cleanedData]);
       const results = response.data;
       
       if (results[0].status === 'success') {
-        // 重置表单
-        setFormData({
-          apiName: '',
-          userName: '',
-          password: '',
-          authToken: '',
-          userTobitId: undefined,
-          personId: '',
-          useCount: 0,
-          tokenStatus: true,
-          accountStatus: true,
-          accountType: 'free',
-        });
+        setFormData(createDefaultAccountForm());
         setShowAddForm(false);
         setIsEditing(false);
         setEditingOriginalPassword('');
-        // 重新加载账号列表
         await loadAccounts();
       } else {
-        setError(isEditing ? '更新账号失败' : '添加账号失败');
+        setError(results[0]?.message || (isEditing ? '更新账号失败' : '添加账号失败'));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : (isEditing ? '更新账号失败' : '添加账号失败'));
@@ -408,6 +410,7 @@ const AccountManager: React.FC = () => {
       tokenStatus: account.tokenStatus ?? true,
       accountStatus: account.accountStatus ?? true,
       accountType: account.accountType || 'free',
+      workspaceUacId: account.workspaceUacId || 0,
     });
     setEditingOriginalPassword(account.password || '');
     setIsEditing(true);
@@ -812,6 +815,11 @@ const AccountManager: React.FC = () => {
           </div>
           <div className="resource-sub">personId: {account.personId || '-'}</div>
           <div className="resource-sub">useCount: {account.useCount || 0}</div>
+          {isChaynsProAccount(account.apiName, account.accountType) && (
+            <div className="resource-sub">
+              workspaceUacId: {account.workspaceUacId || '未配置'}
+            </div>
+          )}
           {account.apiName === 'nexosapi' && (
             <div className="resource-sub">
               Nexos额度: {getNexosQuotaDisplayText(account, quota)}
@@ -996,18 +1004,7 @@ const AccountManager: React.FC = () => {
               if (showAddForm) {
                 setShowAddForm(false);
                 setIsEditing(false);
-                setFormData({
-                  apiName: '',
-                  userName: '',
-                  password: '',
-                  authToken: '',
-                  userTobitId: undefined,
-                  personId: '',
-                  useCount: 0,
-                  tokenStatus: true,
-                  accountStatus: true,
-                  accountType: 'free',
-                });
+                setFormData(createDefaultAccountForm());
               } else {
                 setShowAddForm(true);
               }
@@ -1031,7 +1028,14 @@ const AccountManager: React.FC = () => {
               <label>apiName *</label>
               <select
                 value={formData.apiName}
-                onChange={(e) => setFormData({ ...formData, apiName: e.target.value })}
+                onChange={(e) => {
+                  const apiName = e.target.value;
+                  setFormData({
+                    ...formData,
+                    apiName,
+                    workspaceUacId: apiName === 'chaynsapi' ? formData.workspaceUacId : 0,
+                  });
+                }}
                 required
                 disabled={isEditing}
               >
@@ -1131,7 +1135,14 @@ const AccountManager: React.FC = () => {
               <label>accountType</label>
               <select
                 value={formData.accountType}
-                onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
+                onChange={(e) => {
+                  const accountType = e.target.value;
+                  setFormData({
+                    ...formData,
+                    accountType,
+                    workspaceUacId: accountType === 'pro' ? formData.workspaceUacId : 0,
+                  });
+                }}
               >
                 <option value="free">Free</option>
                 <option value="pro">Pro</option>
@@ -1160,6 +1171,27 @@ const AccountManager: React.FC = () => {
             </div>
           </div>
 
+          {isChaynsProAccount(formData.apiName, formData.accountType) && (
+            <div className="form-row">
+              <div className="form-group">
+                <label>workspaceUacId *</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={formData.workspaceUacId || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    workspaceUacId: e.target.value ? parseInt(e.target.value, 10) : 0,
+                  })}
+                  required
+                  placeholder="mein.sidekick.ki 工作区 ID"
+                />
+                <small>该值与当前 Pro 账号绑定，只有 Pro 模型请求会使用。</small>
+              </div>
+            </div>
+          )}
+
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? (isEditing ? '更新中...' : '添加中...') : (isEditing ? '更新' : '添加')}
@@ -1171,18 +1203,7 @@ const AccountManager: React.FC = () => {
                 setShowAddForm(false);
                 setIsEditing(false);
                 setEditingOriginalPassword('');
-                setFormData({
-                  apiName: '',
-                  userName: '',
-                  password: '',
-                  authToken: '',
-                  userTobitId: undefined,
-                  personId: '',
-                  useCount: 0,
-                  tokenStatus: true,
-                  accountStatus: true,
-                  accountType: 'free',
-                });
+                setFormData(createDefaultAccountForm());
               }}
               disabled={loading}
             >

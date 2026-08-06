@@ -19,6 +19,7 @@ const defaultAccountAutomationSettings: AccountAutomationSettings = {
   autoDeleteEnabled: true,
   deleteAfterDays: 6,
   autoRegisterEnabled: true,
+  namespaceToolBridgeEnabled: true,
 };
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
@@ -333,6 +334,23 @@ const Settings: React.FC = () => {
                 关闭后，后端不会因为渠道账号数量不足而自动补号；账号管理页里的手动“自动注册”按钮仍可单独使用。
               </small>
 
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={accountAutomation.namespaceToolBridgeEnabled}
+                  onChange={(e) =>
+                    setAccountAutomation({
+                      ...accountAutomation,
+                      namespaceToolBridgeEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <span>启用 Responses API Namespace Tool Bridge</span>
+              </label>
+              <small className="standalone-help">
+                开启后会将 namespace/custom 工具转换为上游可调用的 function 工具，同时保留客户端原始工具树；关闭后 namespace 工具只保留在原始请求信息中，不注入工具调用桥接。
+              </small>
+
               <div className="form-actions top-borderless">
                 <button
                   type="button"
@@ -354,7 +372,7 @@ const Settings: React.FC = () => {
           <li>修改本地连接配置后，需要刷新页面才能让新的后端地址生效</li>
           <li>默认连接配置：127.0.0.1:5555</li>
           <li>本地连接配置和 Admin API Key 保存在浏览器的 localStorage 中</li>
-          <li>账号自动化策略优先从数据库配置表 `app_config` 读取；若表中缺失配置项，则会使用 `config.json` 默认值补齐</li>
+          <li>账号自动化策略和 Namespace Tool Bridge 开关优先从数据库配置表 `app_config` 读取；若表中缺失配置项，则会使用 `config.json` 默认值补齐</li>
           <li>管理接口认证失败（401）时，请检查 Admin API Key 是否正确</li>
           <li>
             <strong>重要：</strong>如果网站使用 HTTPS 访问，必须将协议设置为 HTTPS，否则浏览器会因为“混合内容”安全策略阻止 API 请求
